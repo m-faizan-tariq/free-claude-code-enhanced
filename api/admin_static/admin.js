@@ -16,6 +16,13 @@ const VIEW_GROUPS = [
     containerId: "providersSections",
   },
   {
+    id: "key_rotation",
+    label: "Key Rotation",
+    title: "Key Rotation",
+    sections: ["key_rotation"],
+    containerId: "keyRotationSections",
+  },
+  {
     id: "model_config",
     label: "Model Config",
     title: "Model Config",
