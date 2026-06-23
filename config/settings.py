@@ -11,6 +11,11 @@ from dotenv import dotenv_values
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .rotation_settings import (
+    validate_rotation_api_keys_json,
+    validate_rotation_chain_json,
+)
+
 from .constants import HTTP_CONNECT_TIMEOUT_DEFAULT
 from .nim import NimSettings
 from .paths import default_claude_workspace_path, managed_env_path
@@ -107,6 +112,30 @@ class Settings(BaseSettings):
 
     # ==================== Google Gemini (Google AI Studio) ====================
     gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
+
+    # ==================== Gemini Multi-Key Rotation ====================
+    gemini_api_keys: str = Field(
+        default="[]",
+        validation_alias="GEMINI_API_KEYS",
+        description="JSON list of {label, api_key} for multi-project Gemini keys",
+    )
+    gemini_fallback_chain: str = Field(
+        default="[]",
+        validation_alias="GEMINI_FALLBACK_CHAIN",
+        description="JSON ordered list of {label, model, key_label} for Gemini rotation",
+    )
+
+    # ==================== OpenRouter Multi-Key Rotation ====================
+    openrouter_api_keys: str = Field(
+        default="[]",
+        validation_alias="OPENROUTER_API_KEYS",
+        description="JSON list of {label, api_key} for multi-account OpenRouter keys",
+    )
+    openrouter_fallback_chain: str = Field(
+        default="[]",
+        validation_alias="OPENROUTER_FALLBACK_CHAIN",
+        description="JSON ordered list of {label, model, key_label} for OpenRouter rotation",
+    )
 
     # ==================== Groq (OpenAI-compatible) ====================
     groq_api_key: str = Field(default="", validation_alias="GROQ_API_KEY")
@@ -514,6 +543,38 @@ class Settings(BaseSettings):
             for part in self.web_fetch_allowed_schemes.split(",")
             if part.strip()
         )
+
+    # ==================== Multi-Key Rotation Validators ====================
+
+    @field_validator(
+        "gemini_api_keys",
+        "openrouter_api_keys",
+        mode="before",
+    )
+    @classmethod
+    def validate_rotation_api_keys(cls, v: Any) -> str:
+        if isinstance(v, str):
+            return validate_rotation_api_keys_json(v)
+        if isinstance(v, list):
+            import json
+
+            return validate_rotation_api_keys_json(json.dumps(v))
+        raise ValueError("API keys must be a JSON string or list")
+
+    @field_validator(
+        "gemini_fallback_chain",
+        "openrouter_fallback_chain",
+        mode="before",
+    )
+    @classmethod
+    def validate_rotation_chain(cls, v: Any) -> str:
+        if isinstance(v, str):
+            return validate_rotation_chain_json(v)
+        if isinstance(v, list):
+            import json
+
+            return validate_rotation_chain_json(json.dumps(v))
+        raise ValueError("Rotation chain must be a JSON string or list")
 
     @staticmethod
     def parse_provider_type(model_string: str) -> str:
