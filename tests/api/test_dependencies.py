@@ -69,6 +69,10 @@ def _make_mock_settings(**overrides):
     mock.cerebras_api_key = ""
     mock.cerebras_proxy = ""
     mock.nim = NimSettings()
+    mock.gemini_api_keys = "[]"
+    mock.gemini_fallback_chain = "[]"
+    mock.openrouter_api_keys = "[]"
+    mock.openrouter_fallback_chain = "[]"
     mock.http_read_timeout = 300.0
     mock.http_write_timeout = 10.0
     mock.http_connect_timeout = 10.0

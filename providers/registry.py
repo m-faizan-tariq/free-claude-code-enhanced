@@ -38,10 +38,15 @@ def _create_nvidia_nim(config: ProviderConfig, settings: Settings) -> BaseProvid
     return NvidiaNimProvider(config, nim_settings=settings.nim)
 
 
-def _create_open_router(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+def _create_open_router(config: ProviderConfig, settings: Settings) -> BaseProvider:
     from providers.open_router import OpenRouterProvider
+    from providers.rotation import RotationConfig
 
-    return OpenRouterProvider(config)
+    rotation = RotationConfig(
+        settings.openrouter_api_keys,
+        settings.openrouter_fallback_chain,
+    )
+    return OpenRouterProvider(config, rotation_config=rotation)
 
 
 def _create_mistral(config: ProviderConfig, _settings: Settings) -> BaseProvider:
@@ -118,10 +123,15 @@ def _create_fireworks(config: ProviderConfig, _settings: Settings) -> BaseProvid
     return FireworksProvider(config)
 
 
-def _create_gemini(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+def _create_gemini(config: ProviderConfig, settings: Settings) -> BaseProvider:
     from providers.gemini import GeminiProvider
+    from providers.rotation import RotationConfig
 
-    return GeminiProvider(config)
+    rotation = RotationConfig(
+        settings.gemini_api_keys,
+        settings.gemini_fallback_chain,
+    )
+    return GeminiProvider(config, rotation_config=rotation)
 
 
 def _create_groq(config: ProviderConfig, _settings: Settings) -> BaseProvider:

@@ -75,6 +75,10 @@ def _make_settings(**overrides):
     mock.http_connect_timeout = 10.0
     mock.enable_model_thinking = True
     mock.nim = NimSettings()
+    mock.gemini_api_keys = "[]"
+    mock.gemini_fallback_chain = "[]"
+    mock.openrouter_api_keys = "[]"
+    mock.openrouter_fallback_chain = "[]"
     for key, value in overrides.items():
         setattr(mock, key, value)
     return mock
