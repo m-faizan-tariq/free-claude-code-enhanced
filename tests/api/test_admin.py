@@ -510,3 +510,115 @@ def test_admin_launch_url_uses_loopback_for_wildcard_host():
     settings = Settings.model_construct(host="0.0.0.0", port=8082)
 
     assert local_admin_url(settings) == "http://127.0.0.1:8082/admin"
+
+
+def test_admin_config_rotation_fields_appear(monkeypatch, tmp_path):
+    _set_home(monkeypatch, tmp_path)
+    _clear_process_config(monkeypatch)
+    app = create_app(lifespan_enabled=False)
+
+    response = _local_client(app).get("/admin/api/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    keys = {field["key"] for field in body["fields"]}
+    assert "GEMINI_API_KEYS" in keys
+    assert "GEMINI_FALLBACK_CHAIN" in keys
+    assert "OPENROUTER_API_KEYS" in keys
+    assert "OPENROUTER_FALLBACK_CHAIN" in keys
+
+
+def test_admin_config_rotation_fields_in_key_rotation_section(monkeypatch, tmp_path):
+    _set_home(monkeypatch, tmp_path)
+    _clear_process_config(monkeypatch)
+    app = create_app(lifespan_enabled=False)
+
+    response = _local_client(app).get("/admin/api/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    for field in body["fields"]:
+        if field["key"] in ("GEMINI_API_KEYS", "GEMINI_FALLBACK_CHAIN",
+                            "OPENROUTER_API_KEYS", "OPENROUTER_FALLBACK_CHAIN"):
+            assert field["section"] == "key_rotation"
+            assert field["type"] == "textarea"
+            assert field["value"] == "[]"
+
+
+def test_admin_config_apply_rotation_fields_valid_json(monkeypatch, tmp_path):
+    _set_home(monkeypatch, tmp_path)
+    _clear_process_config(monkeypatch)
+    app = create_app(lifespan_enabled=False)
+
+    gemini_keys = '[{"label": "proj-1", "api_key": "AIza-key1"}, {"label": "proj-2", "api_key": "AIza-key2"}]'
+    gemini_chain = '[{"label": "s1", "model": "gemini/gemini-2.0-flash", "key_label": "proj-1"}]'
+
+    response = _local_client(app).post(
+        "/admin/api/config/apply",
+        json={
+            "values": {
+                "MODEL": "gemini/gemini-2.0-flash",
+                "GEMINI_API_KEY": "test-key",
+                "GEMINI_API_KEYS": gemini_keys,
+                "GEMINI_FALLBACK_CHAIN": gemini_chain,
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["applied"] is True
+
+    env_file = tmp_path / ".fcc" / ".env"
+    text = env_file.read_text("utf-8")
+    assert "GEMINI_API_KEYS=" in text
+    assert "AIza-key1" in text
+    assert "GEMINI_FALLBACK_CHAIN=" in text
+    assert "key_label" in text
+
+
+def test_admin_config_apply_rejects_invalid_rotation_json(monkeypatch, tmp_path):
+    _set_home(monkeypatch, tmp_path)
+    _clear_process_config(monkeypatch)
+    app = create_app(lifespan_enabled=False)
+
+    response = _local_client(app).post(
+        "/admin/api/config/apply",
+        json={
+            "values": {
+                "MODEL": "gemini/gemini-2.0-flash",
+                "GEMINI_API_KEY": "test-key",
+                "GEMINI_API_KEYS": "not-json",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["applied"] is False
+    assert body["valid"] is False
+
+
+def test_admin_config_validate_accepts_rotation_fields(monkeypatch, tmp_path):
+    _set_home(monkeypatch, tmp_path)
+    _clear_process_config(monkeypatch)
+    app = create_app(lifespan_enabled=False)
+
+    response = _local_client(app).post(
+        "/admin/api/config/validate",
+        json={
+            "values": {
+                "GEMINI_API_KEYS": '[{"label": "k1", "api_key": "AIza-key1"}]',
+                "GEMINI_FALLBACK_CHAIN": '[{"label": "s1", "model": "gemini/gemini-2.0-flash", "key_label": "k1"}]',
+                "OPENROUTER_API_KEYS": "[]",
+                "OPENROUTER_FALLBACK_CHAIN": "[]",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["valid"] is True
+
+
+
