@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import httpx
+
 from core.anthropic import iter_provider_stream_error_sse_events
 from core.anthropic.native_sse_block_policy import (
     NativeSseBlockPolicyState,
@@ -51,10 +52,16 @@ class OpenRouterProvider(AnthropicMessagesTransport):
     async def _validated_stream_send(
         self, body: dict, *, req_tag: str
     ) -> httpx.Response:
-        pool_size = len(self._rotation_config._pool) if self._rotation_config.enabled else 1
+        pool_size = (
+            len(self._rotation_config._pool) if self._rotation_config.enabled else 1
+        )
         last_error: Exception | None = None
         for _ in range(pool_size):
-            step = self._rotation_config.next_key() if self._rotation_config.enabled else None
+            step = (
+                self._rotation_config.next_key()
+                if self._rotation_config.enabled
+                else None
+            )
             if step is not None:
                 self._api_key = step.api_key
                 # Do NOT recreate the httpx client — reusing the connection pool avoids
@@ -62,25 +69,53 @@ class OpenRouterProvider(AnthropicMessagesTransport):
             try:
                 response = await super()._validated_stream_send(body, req_tag=req_tag)
                 if step is not None:
-                    self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="OpenRouter", status=response.status_code)
+                    self._rotation_config.log_attempt(
+                        step,
+                        model=body.get("model", ""),
+                        provider="OpenRouter",
+                        status=response.status_code,
+                    )
                 return response
             except Exception as exc:
                 if step is not None:
-                    if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
+                    if (
+                        isinstance(exc, httpx.HTTPStatusError)
+                        and exc.response is not None
+                    ):
                         status_code = exc.response.status_code
-                        self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="OpenRouter", status=status_code)
+                        self._rotation_config.log_attempt(
+                            step,
+                            model=body.get("model", ""),
+                            provider="OpenRouter",
+                            status=status_code,
+                        )
                         if status_code == 400:
                             try:
                                 error_body = await exc.response.aread()
-                                self._rotation_config.log_raw(step, f"400 body: {error_body.decode(errors='replace')[:2000]}")
+                                self._rotation_config.log_raw(
+                                    step,
+                                    f"400 body: {error_body.decode(errors='replace')[:2000]}",
+                                )
                             except Exception:
                                 pass
                     elif isinstance(exc, httpx.RequestError):
-                        self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="OpenRouter", error="connection_error")
+                        self._rotation_config.log_attempt(
+                            step,
+                            model=body.get("model", ""),
+                            provider="OpenRouter",
+                            error="connection_error",
+                        )
                     else:
-                        self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="OpenRouter", error=f"{type(exc).__name__}")
+                        self._rotation_config.log_attempt(
+                            step,
+                            model=body.get("model", ""),
+                            provider="OpenRouter",
+                            error=f"{type(exc).__name__}",
+                        )
                 last_error = exc
                 continue
+        if last_error is None:
+            last_error = RuntimeError("all rotation attempts failed without exception")
         raise last_error
 
     def _build_request_body(

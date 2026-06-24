@@ -76,17 +76,17 @@ SECTIONS: tuple[ConfigSectionSpec, ...] = (
     ConfigSectionSpec(
         "gemini_keys",
         "Gemini API Keys",
-        "Round‑robin across multiple Google Cloud projects. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+        "Round-robin across multiple Google Cloud projects. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
     ),
     ConfigSectionSpec(
         "openrouter_keys",
         "OpenRouter API Keys",
-        "Round‑robin across multiple OpenRouter accounts. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+        "Round-robin across multiple OpenRouter accounts. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
     ),
     ConfigSectionSpec(
         "openmodel_keys",
         "OpenModel API Keys",
-        "Round‑robin across multiple OpenModel keys. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+        "Round-robin across multiple OpenModel keys. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
     ),
     ConfigSectionSpec(
         "models",
@@ -435,7 +435,7 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         "key_list",
         settings_attr="gemini_api_keys",
         default="[]",
-        description="Add API keys from multiple Google Cloud projects for round‑robin rotation.",
+        description="Add API keys from multiple Google Cloud projects for round-robin rotation.",
     ),
     ConfigFieldSpec(
         "OPENROUTER_API_KEYS",
@@ -444,7 +444,7 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         "key_list",
         settings_attr="openrouter_api_keys",
         default="[]",
-        description="Add API keys from multiple OpenRouter accounts for round‑robin rotation.",
+        description="Add API keys from multiple OpenRouter accounts for round-robin rotation.",
     ),
     ConfigFieldSpec(
         "OPENMODEL_API_KEYS",
@@ -453,7 +453,7 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         "key_list",
         settings_attr="openmodel_api_keys",
         default="[]",
-        description="Add API keys from multiple OpenModel accounts for round‑robin rotation.",
+        description="Add API keys from multiple OpenModel accounts for round-robin rotation.",
     ),
     ConfigFieldSpec(
         "GROQ_PROXY",

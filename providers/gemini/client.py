@@ -5,9 +5,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from httpx import Timeout
-from openai import AsyncOpenAI
-
 from providers.base import ProviderConfig
 from providers.defaults import GEMINI_DEFAULT_BASE
 from providers.rotation import RotationConfig
@@ -49,27 +46,49 @@ class GeminiProvider(OpenAIChatTransport):
         self._tool_call_extra_content_by_id[tool_call_id] = deepcopy(extra_content)
 
     async def _create_stream(self, body: dict) -> tuple[Any, dict]:
-        pool_size = len(self._rotation_config._pool) if self._rotation_config.enabled else 1
+        pool_size = (
+            len(self._rotation_config._pool) if self._rotation_config.enabled else 1
+        )
         last_error: Exception | None = None
         for _ in range(pool_size):
-            step = self._rotation_config.next_key() if self._rotation_config.enabled else None
+            step = (
+                self._rotation_config.next_key()
+                if self._rotation_config.enabled
+                else None
+            )
             if step is not None:
                 self._api_key = step.api_key
-                self._client.api_key = step.api_key  # AsyncOpenAI stores key at construction; update it directly
+                self._client.api_key = (
+                    step.api_key
+                )  # AsyncOpenAI stores key at construction; update it directly
             try:
                 result = await super()._create_stream(body)
                 if step is not None:
-                    self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="Gemini", status=200)
+                    self._rotation_config.log_attempt(
+                        step, model=body.get("model", ""), provider="Gemini", status=200
+                    )
                 return result
             except Exception as exc:
                 if step is not None:
                     status = getattr(exc, "status_code", None)
                     if status is not None:
-                        self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="Gemini", status=status)
+                        self._rotation_config.log_attempt(
+                            step,
+                            model=body.get("model", ""),
+                            provider="Gemini",
+                            status=status,
+                        )
                     else:
-                        self._rotation_config.log_attempt(step, model=body.get("model", ""), provider="Gemini", error=f"{type(exc).__name__}")
+                        self._rotation_config.log_attempt(
+                            step,
+                            model=body.get("model", ""),
+                            provider="Gemini",
+                            error=f"{type(exc).__name__}",
+                        )
                 last_error = exc
                 continue
+        if last_error is None:
+            last_error = RuntimeError("all rotation attempts failed without exception")
         raise last_error
 
     def _build_request_body(

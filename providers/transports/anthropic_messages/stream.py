@@ -208,9 +208,14 @@ class AnthropicMessagesStreamRunner:
 
                         # If recovery failed due to a transport error, retry the full
                         # request with the next rotation key instead of giving up.
-                        if (
-                            transport_retries < TRANSPORT_RETRY_MAX
-                            and isinstance(error, (httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError, httpx.NetworkError))
+                        if transport_retries < TRANSPORT_RETRY_MAX and isinstance(
+                            error,
+                            (
+                                httpx.ReadError,
+                                httpx.ConnectError,
+                                httpx.RemoteProtocolError,
+                                httpx.NetworkError,
+                            ),
                         ):
                             transport_retries += 1
                             if response is not None and not response.is_closed:

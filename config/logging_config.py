@@ -140,7 +140,7 @@ def configure_logging(
         enqueue=True,
     )
 
-    # Rotation monitoring sink: plain‑text, rotation‑filtered, separate file
+    # Rotation monitoring sink: plain-text, rotation-filtered, separate file
     logger.add(
         "/tmp/fcc-rotation.log",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {message}",

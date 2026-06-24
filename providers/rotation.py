@@ -1,9 +1,10 @@
-"""Multi-key rotation engine: round‑robin key selection across configured keys."""
+"""Multi-key rotation engine: round-robin key selection across configured keys."""
 
 from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
+from typing import ClassVar
 
 from loguru import logger
 
@@ -24,10 +25,10 @@ class RotationStep:
 
 
 class RotationConfig:
-    """Round‑robin key rotation across a list of API keys.
+    """Round-robin key rotation across a list of API keys.
 
     If ``single_key`` is provided and rotation is enabled (the list is
-    non‑empty), the single key is prepended to the rotation pool so that
+    non-empty), the single key is prepended to the rotation pool so that
     both the existing provider key and any rotation keys are cycled.
     """
 
@@ -35,13 +36,16 @@ class RotationConfig:
         entries = parse_api_keys_json(api_keys_json)
         keys_already = {e["api_key"] for e in entries}
         self._pool: list[RotationStep] = [
-            RotationStep(label=e["label"], api_key=e["api_key"])
-            for e in entries
+            RotationStep(label=e["label"], api_key=e["api_key"]) for e in entries
         ]
         if single_key and self._pool and single_key not in keys_already:
-            self._pool.insert(0, RotationStep(
-                label="Primary", api_key=single_key,
-            ))
+            self._pool.insert(
+                0,
+                RotationStep(
+                    label="Primary",
+                    api_key=single_key,
+                ),
+            )
         self._cycle = itertools.cycle(self._pool) if self._pool else None
 
     @property
@@ -49,14 +53,29 @@ class RotationConfig:
         return len(self._pool) > 0
 
     def next_key(self) -> RotationStep | None:
-        """Return the next key (round‑robin), or ``None`` if no keys configured."""
+        """Return the next key (round-robin), or ``None`` if no keys configured."""
         if self._cycle is None:
             return None
         return next(self._cycle)
 
-    _STATUS_LABELS = {200: "OK", 201: "OK", 204: "OK", 401: "unauthorized", 403: "forbidden", 429: "rate_limited", 503: "unavailable"}
+    _STATUS_LABELS: ClassVar[dict[int, str]] = {
+        200: "OK",
+        201: "OK",
+        204: "OK",
+        401: "unauthorized",
+        403: "forbidden",
+        429: "rate_limited",
+        503: "unavailable",
+    }
 
-    def log_attempt(self, step: RotationStep | None, model: str = "", provider: str = "", status: int | None = None, error: str = "") -> None:
+    def log_attempt(
+        self,
+        step: RotationStep | None,
+        model: str = "",
+        provider: str = "",
+        status: int | None = None,
+        error: str = "",
+    ) -> None:
         """Log one rotation attempt with its outcome on a single line."""
         if step is None:
             return

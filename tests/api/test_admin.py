@@ -614,6 +614,3 @@ def test_admin_config_validate_accepts_rotation_fields(monkeypatch, tmp_path):
     assert response.status_code == 200
     body = response.json()
     assert body["valid"] is True
-
-
-

@@ -30,7 +30,6 @@ def validate_rotation_api_keys_json(value: str) -> str:
     return value
 
 
-
 def parse_api_keys_json(value: str) -> list[dict[str, str]]:
     """Parse a validated API keys JSON string into a Python list.
 
@@ -44,7 +43,6 @@ def parse_api_keys_json(value: str) -> list[dict[str, str]]:
         if "key" in entry and "api_key" not in entry:
             entry["api_key"] = entry.pop("key")
     return entries
-
 
 
 def _parse_json_safe(value: str, label: str) -> Any:

@@ -10,10 +10,12 @@ from config.settings import Settings
 
 class TestGeminiMultiKeySettings:
     def test_gemini_api_keys_roundtrip(self, monkeypatch):
-        keys_json = json.dumps([
-            {"label": "Project A", "api_key": "AIza-test-key-a"},
-            {"label": "Project B", "api_key": "AIza-test-key-b"},
-        ])
+        keys_json = json.dumps(
+            [
+                {"label": "Project A", "api_key": "AIza-test-key-a"},
+                {"label": "Project B", "api_key": "AIza-test-key-b"},
+            ]
+        )
         monkeypatch.setenv("GEMINI_API_KEYS", keys_json)
         settings = Settings()
         parsed = json.loads(settings.gemini_api_keys)
@@ -45,9 +47,11 @@ class TestGeminiMultiKeySettings:
 
 class TestOpenRouterMultiKeySettings:
     def test_openrouter_api_keys_roundtrip(self, monkeypatch):
-        keys_json = json.dumps([
-            {"label": "Account 1", "api_key": "sk-or-v1-test-key"},
-        ])
+        keys_json = json.dumps(
+            [
+                {"label": "Account 1", "api_key": "sk-or-v1-test-key"},
+            ]
+        )
         monkeypatch.setenv("OPENROUTER_API_KEYS", keys_json)
         settings = Settings()
         parsed = json.loads(settings.openrouter_api_keys)

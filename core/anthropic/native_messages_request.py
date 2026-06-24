@@ -151,8 +151,11 @@ def fix_anthropic_messages_tool_sequence(messages: list[Any]) -> list[Any]:
             continue
 
         tool_use_blocks = [
-            b for b in content
-            if isinstance(b, dict) and b.get("type") == "tool_use" and isinstance(b.get("id"), str)
+            b
+            for b in content
+            if isinstance(b, dict)
+            and b.get("type") == "tool_use"
+            and isinstance(b.get("id"), str)
         ]
         if not tool_use_blocks:
             continue
@@ -166,33 +169,53 @@ def fix_anthropic_messages_tool_sequence(messages: list[Any]) -> list[Any]:
                 nxt_content = nxt.get("content")
                 if isinstance(nxt_content, list):
                     tool_results = [
-                        b for b in nxt_content
-                        if isinstance(b, dict) and b.get("type") == "tool_result"
+                        b
+                        for b in nxt_content
+                        if isinstance(b, dict)
+                        and b.get("type") == "tool_result"
                         and isinstance(b.get("tool_use_id"), str)
                     ]
                     resolved_ids = {b["tool_use_id"] for b in tool_results}
                 else:
                     from loguru import logger
-                    logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but next msg content is not a list: type={type(nxt_content).__name__}")
+
+                    logger.warning(
+                        f"messages[{i}] has tool_use ids={tool_use_ids} but next msg content is not a list: type={type(nxt_content).__name__}"
+                    )
             else:
                 from loguru import logger
-                nxt_role = nxt.get("role") if isinstance(nxt, dict) else type(nxt).__name__
-                logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but next msg role='{nxt_role}' (expected 'user')")
+
+                nxt_role = (
+                    nxt.get("role") if isinstance(nxt, dict) else type(nxt).__name__
+                )
+                logger.warning(
+                    f"messages[{i}] has tool_use ids={tool_use_ids} but next msg role='{nxt_role}' (expected 'user')"
+                )
         else:
             from loguru import logger
-            logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but no next message exists")
+
+            logger.warning(
+                f"messages[{i}] has tool_use ids={tool_use_ids} but no next message exists"
+            )
 
         orphan_ids = tool_use_ids - resolved_ids
         if not orphan_ids:
             continue
 
         from loguru import logger
-        logger.info(f"Stripping {len(orphan_ids)} orphan tool_use(s) ids={orphan_ids} from messages[{i}] (resolved={resolved_ids})")
+
+        logger.info(
+            f"Stripping {len(orphan_ids)} orphan tool_use(s) ids={orphan_ids} from messages[{i}] (resolved={resolved_ids})"
+        )
 
         cleaned = [
-            b for b in content
-            if not (isinstance(b, dict) and b.get("type") == "tool_use"
-                    and b.get("id") in orphan_ids)
+            b
+            for b in content
+            if not (
+                isinstance(b, dict)
+                and b.get("type") == "tool_use"
+                and b.get("id") in orphan_ids
+            )
         ]
         fixed[i] = dict(msg)
         fixed[i]["content"] = cleaned if cleaned else ""

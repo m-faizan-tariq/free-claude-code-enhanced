@@ -39,7 +39,20 @@ def _init_context_limits() -> None:
     global _CONTEXT_LIMITS_BY_ID, _CONTEXT_LIMITS_INITIALIZED
     for key, ctx in _KNOWN_CONTEXT_LIMITS.items():
         _CONTEXT_LIMITS_BY_ID[key] = ctx
-        for prefix in ("nvidia_nim/", "openmodel/", "gemini/models/", "open_router/", "kimi/", "zai/", "groq/", "cerebras/", "lmstudio/", "llamacpp/", "ollama/", "wafer/"):
+        for prefix in (
+            "nvidia_nim/",
+            "openmodel/",
+            "gemini/models/",
+            "open_router/",
+            "kimi/",
+            "zai/",
+            "groq/",
+            "cerebras/",
+            "lmstudio/",
+            "llamacpp/",
+            "ollama/",
+            "wafer/",
+        ):
             _CONTEXT_LIMITS_BY_ID[f"{prefix}{key}"] = ctx
     _CONTEXT_LIMITS_INITIALIZED = True
 

@@ -11,14 +11,13 @@ from dotenv import dotenv_values
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .rotation_settings import (
-    validate_rotation_api_keys_json,
-)
-
 from .constants import HTTP_CONNECT_TIMEOUT_DEFAULT
 from .nim import NimSettings
 from .paths import default_claude_workspace_path, managed_env_path
 from .provider_ids import SUPPORTED_PROVIDER_IDS
+from .rotation_settings import (
+    validate_rotation_api_keys_json,
+)
 
 
 @dataclass(frozen=True, slots=True)
