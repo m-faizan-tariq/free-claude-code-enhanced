@@ -296,14 +296,14 @@ def test_cli_surfaces_are_explicit_launchers_and_managed_claude() -> None:
     assert _text_occurrences(repo_root, "_preflight" + "_proxy") == []
 
     claude_env_text = (cli_root / "claude_env.py").read_text(encoding="utf-8")
-    assert 'CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"' in claude_env_text
+    assert "per-model context_window" in claude_env_text
     assert 'CLAUDE_NO_AUTH_SENTINEL = "fcc-no-auth"' in claude_env_text
     for path in {
         cli_root / "launchers" / "claude.py",
         cli_root / "managed" / "claude.py",
     }:
         text = path.read_text(encoding="utf-8")
-        assert '"1000000"' not in text
+        assert '"AUTO_COMPACT_WINDOW"' not in text
         assert '"fcc-no-auth"' not in text
 
     messaging_protocols_text = (

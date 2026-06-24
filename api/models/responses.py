@@ -24,6 +24,7 @@ class ModelResponse(BaseModel):
     display_name: str
     id: str
     type: Literal["model"] = "model"
+    context_window: int | None = None
 
 
 class ModelsListResponse(BaseModel):

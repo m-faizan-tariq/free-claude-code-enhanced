@@ -7,7 +7,7 @@ import sys
 from collections.abc import Mapping, Sequence
 
 from api.admin_urls import local_proxy_root_url
-from cli.claude_env import CLAUDE_CODE_AUTO_COMPACT_WINDOW, claude_auth_token
+from cli.claude_env import claude_auth_token
 from config.settings import Settings, get_settings
 
 from .common import preflight_proxy, resolve_client_binary, run_client_process
@@ -79,6 +79,5 @@ def build_claude_launcher_env(
     }
     env["ANTHROPIC_BASE_URL"] = proxy_root_url
     env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
-    env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = CLAUDE_CODE_AUTO_COMPACT_WINDOW
     env["ANTHROPIC_AUTH_TOKEN"] = claude_auth_token(auth_token)
     return env

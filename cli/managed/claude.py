@@ -9,7 +9,7 @@ from typing import Any
 
 from loguru import logger
 
-from cli.claude_env import CLAUDE_CODE_AUTO_COMPACT_WINDOW, claude_auth_token
+from cli.claude_env import claude_auth_token
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +104,6 @@ def build_managed_claude_env(
     env["ANTHROPIC_API_URL"] = api_url
     env["ANTHROPIC_BASE_URL"] = api_url[:-3] if api_url.endswith("/v1") else api_url
     env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] = "1"
-    env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = CLAUDE_CODE_AUTO_COMPACT_WINDOW
     env.pop("ANTHROPIC_API_KEY", None)
     env["ANTHROPIC_AUTH_TOKEN"] = claude_auth_token(auth_token)
     env["TERM"] = "dumb"

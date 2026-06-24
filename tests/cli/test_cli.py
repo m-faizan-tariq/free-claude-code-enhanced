@@ -531,7 +531,7 @@ class TestManagedClaudeSession:
             env = mock_exec.call_args.kwargs["env"]
             assert env["ANTHROPIC_AUTH_TOKEN"] == "proxy-token"
             assert env["CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY"] == "1"
-            assert env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] == "1000000"
+            assert "CLAUDE_CODE_AUTO_COMPACT_WINDOW" not in env
             assert "ANTHROPIC_API_KEY" not in env
 
     @pytest.mark.asyncio

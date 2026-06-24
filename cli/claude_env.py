@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
+# No AUTO_COMPACT_WINDOW — the proxy advertises per-model context_window
+# via /v1/models, so Claude Code auto-compacts at 80% of each model's limit.
 CLAUDE_NO_AUTH_SENTINEL = "fcc-no-auth"
 
 
