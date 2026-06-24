@@ -64,7 +64,7 @@ These paths count as production (runtime, packaging, or install surface):
 These do **not** require a version bump on their own:
 
 - `tests/`, `smoke/`
-- Docs and assets: `README.md`, `assets/`, `AGENTS.md`, `CLAUDE.md`
+- Docs: `README.md`, `AGENTS.md`, `CLAUDE.md`
 - CI and repo config: `.github/`, `.gitignore`
 
 If a single commit mixes production and non-production edits, still bump the version.
