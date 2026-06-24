@@ -111,3 +111,7 @@ class ServiceUnavailableError(ProviderError):
 
 class ModelListResponseError(ServiceUnavailableError):
     """Raised when a provider model-list response cannot be parsed safely."""
+
+
+class ProviderExhaustedError(ProviderError):
+    """All provider keys/models exhausted."""

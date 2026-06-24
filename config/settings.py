@@ -202,6 +202,17 @@ class Settings(BaseSettings):
     groq_proxy: str = Field(default="", validation_alias="GROQ_PROXY")
     cerebras_proxy: str = Field(default="", validation_alias="CEREBRAS_PROXY")
 
+    # ==================== FreeLLMAPI Config ====================
+    freellmapi_api_key: str = Field(default="", validation_alias="FREELMAPI_API_KEY")
+    freellmapi_proxy: str = Field(default="", validation_alias="FREELMAPI_PROXY")
+    # ==================== ModelScope Config ====================
+    modelscope_api_key: str = Field(default="", validation_alias="MODELSCOPE_API_KEY")
+    modelscope_base_url: str = Field(
+        default="https://api-inference.modelscope.ai/v1",
+        validation_alias="MODELSCOPE_BASE_URL",
+    )
+    modelscope_proxy: str = Field(default="", validation_alias="MODELSCOPE_PROXY")
+
     # ==================== Provider Rate Limiting ====================
     provider_rate_limit: int = Field(default=40, validation_alias="PROVIDER_RATE_LIMIT")
     provider_rate_window: int = Field(

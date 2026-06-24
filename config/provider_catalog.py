@@ -38,6 +38,8 @@ OPENMODEL_DEFAULT_BASE = "https://api.openmodel.ai/v1"
 GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GROQ_DEFAULT_BASE = "https://api.groq.com/openai/v1"
 CEREBRAS_DEFAULT_BASE = "https://api.cerebras.ai/v1"
+FREELMAPI_DEFAULT_BASE = "http://localhost:3001/v1"
+MODELSCOPE_DEFAULT_BASE = "https://api-inference.modelscope.ai/v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,6 +233,27 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
             "native_anthropic",
             "rate_limit",
         ),
+    ),
+    "freellmapi": ProviderDescriptor(
+        provider_id="freellmapi",
+        transport_type="openai_chat",
+        credential_env="FREELMAPI_API_KEY",
+        credential_url="https://freellmapi.com",
+        credential_attr="freellmapi_api_key",
+        default_base_url=FREELMAPI_DEFAULT_BASE,
+        proxy_attr="freellmapi_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
+    ),
+    "modelscope": ProviderDescriptor(
+        provider_id="modelscope",
+        transport_type="openai_chat",
+        credential_env="MODELSCOPE_API_KEY",
+        credential_url="https://modelscope.cn/my/api-keys",
+        credential_attr="modelscope_api_key",
+        default_base_url=MODELSCOPE_DEFAULT_BASE,
+        base_url_attr="modelscope_base_url",
+        proxy_attr="modelscope_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
     ),
     "lmstudio": ProviderDescriptor(
         provider_id="lmstudio",

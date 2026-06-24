@@ -157,6 +157,18 @@ def _create_cerebras(config: ProviderConfig, _settings: Settings) -> BaseProvide
     return CerebrasProvider(config)
 
 
+def _create_freellmapi(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+    from providers.freellmapi import FreeLLMAPIProvider
+
+    return FreeLLMAPIProvider(config)
+
+
+def _create_modelscope(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+    from providers.modelscope import ModelScopeProvider
+
+    return ModelScopeProvider(config)
+
+
 PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "nvidia_nim": _create_nvidia_nim,
     "open_router": _create_open_router,
@@ -173,6 +185,8 @@ PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "fireworks": _create_fireworks,
     "zai": _create_zai,
     "openmodel": _create_openmodel,
+    "freellmapi": _create_freellmapi,
+    "modelscope": _create_modelscope,
     "lmstudio": _create_lmstudio,
     "llamacpp": _create_llamacpp,
     "ollama": _create_ollama,

@@ -20,6 +20,8 @@ _EXPECTED_PROVIDER_ORDER: tuple[str, ...] = (
     "fireworks",
     "zai",
     "openmodel",
+    "freellmapi",
+    "modelscope",
     "lmstudio",
     "llamacpp",
     "ollama",
