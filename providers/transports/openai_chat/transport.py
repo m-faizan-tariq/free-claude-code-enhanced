@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from abc import abstractmethod
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
@@ -71,7 +72,11 @@ class OpenAIChatTransport(BaseProvider):
         """Release HTTP client resources."""
         client = getattr(self, "_client", None)
         if client is not None:
-            await client.close()
+            close = getattr(client, "close", None) or getattr(client, "aclose", None)
+            if close is not None:
+                result = close()
+                if inspect.isawaitable(result):
+                    await result
 
     async def list_model_ids(self) -> frozenset[str]:
         """Return model ids from the provider's OpenAI-compatible models endpoint."""
