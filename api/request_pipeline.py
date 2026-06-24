@@ -6,26 +6,12 @@ import traceback
 import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
+from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
-
-_REQUEST_LOG = open("/tmp/fcc-requests.log", "a", 1)
-
-
-def _log_request(provider_id: str, model: str, gw_model: str, req_id: str) -> None:
-    from datetime import datetime
-    _REQUEST_LOG.write(f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{provider_id}] model={model} gw_model={gw_model} {req_id}\n")
-
-
-def _log_outcome(req_id: str, status: str, detail: str = "") -> None:
-    from datetime import datetime
-    line = f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{req_id}] status={status}"
-    if detail:
-        line += f" detail={detail}"
-    _REQUEST_LOG.write(line + "\n")
 
 from config.provider_catalog import PROVIDER_CATALOG
 from config.settings import Settings
@@ -48,6 +34,19 @@ from .web_tools.request import (
     openai_chat_upstream_server_tool_error,
 )
 from .web_tools.streaming import stream_web_server_tool_response
+
+_REQUEST_LOG = open("/tmp/fcc-requests.log", "a", 1)
+
+
+def _log_request(provider_id: str, model: str, gw_model: str, req_id: str) -> None:
+    _REQUEST_LOG.write(f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{provider_id}] model={model} gw_model={gw_model} {req_id}\n")
+
+
+def _log_outcome(req_id: str, status: str, detail: str = "") -> None:
+    line = f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{req_id}] status={status}"
+    if detail:
+        line += f" detail={detail}"
+    _REQUEST_LOG.write(line + "\n")
 
 TokenCounter = Callable[[list[Any], str | list[Any] | None, list[Any] | None], int]
 ProviderGetter = Callable[[str], BaseProvider]
