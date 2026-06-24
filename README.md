@@ -26,6 +26,17 @@ cd free-claude-code-enhanced
 uv run uvicorn server:app --host 0.0.0.0 --port 8082
 ```
 
+### Uninstall
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/m-faizan-tariq/free-claude-code-enhanced/main/scripts/uninstall.sh" | sh
+```
+
+Windows PowerShell:
+```powershell
+irm "https://raw.githubusercontent.com/m-faizan-tariq/free-claude-code-enhanced/main/scripts/uninstall.ps1" | iex
+```
+
 ## Quick Config
 
 1. Run `fcc-server` — opens Admin UI at `http://127.0.0.1:8082/admin`
