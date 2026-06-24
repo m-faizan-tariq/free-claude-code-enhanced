@@ -44,7 +44,7 @@ def _create_open_router(config: ProviderConfig, settings: Settings) -> BaseProvi
 
     rotation = RotationConfig(
         settings.openrouter_api_keys,
-        settings.openrouter_fallback_chain,
+        single_key=config.api_key,
     )
     return OpenRouterProvider(config, rotation_config=rotation)
 
@@ -129,9 +129,20 @@ def _create_gemini(config: ProviderConfig, settings: Settings) -> BaseProvider:
 
     rotation = RotationConfig(
         settings.gemini_api_keys,
-        settings.gemini_fallback_chain,
+        single_key=config.api_key,
     )
     return GeminiProvider(config, rotation_config=rotation)
+
+
+def _create_openmodel(config: ProviderConfig, settings: Settings) -> BaseProvider:
+    from providers.openmodel import OpenModelProvider
+    from providers.rotation import RotationConfig
+
+    rotation = RotationConfig(
+        settings.openmodel_api_keys,
+        single_key=config.api_key,
+    )
+    return OpenModelProvider(config, rotation_config=rotation)
 
 
 def _create_groq(config: ProviderConfig, _settings: Settings) -> BaseProvider:
@@ -161,6 +172,7 @@ PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "groq": _create_groq,
     "fireworks": _create_fireworks,
     "zai": _create_zai,
+    "openmodel": _create_openmodel,
     "lmstudio": _create_lmstudio,
     "llamacpp": _create_llamacpp,
     "ollama": _create_ollama,

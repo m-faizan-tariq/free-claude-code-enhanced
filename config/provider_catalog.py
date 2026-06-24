@@ -32,6 +32,8 @@ OPENCODE_DEFAULT_BASE = "https://opencode.ai/zen/v1"
 OPENCODE_GO_DEFAULT_BASE = "https://opencode.ai/zen/go/v1"
 # Z.ai Anthropic-compatible Messages API (not OpenAI Coding Plan chat completions).
 ZAI_DEFAULT_BASE = "https://api.z.ai/api/anthropic/v1"
+# OpenModel Anthropic-compatible Messages API (api.openmodel.ai/v1/messages).
+OPENMODEL_DEFAULT_BASE = "https://api.openmodel.ai/v1"
 # Google AI Studio Gemini API OpenAI-compat layer (not Vertex AI).
 GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GROQ_DEFAULT_BASE = "https://api.groq.com/openai/v1"
@@ -204,6 +206,23 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
         credential_attr="zai_api_key",
         default_base_url=ZAI_DEFAULT_BASE,
         proxy_attr="zai_proxy",
+        capabilities=(
+            "chat",
+            "streaming",
+            "tools",
+            "thinking",
+            "native_anthropic",
+            "rate_limit",
+        ),
+    ),
+    "openmodel": ProviderDescriptor(
+        provider_id="openmodel",
+        transport_type="anthropic_messages",
+        credential_env="OPENMODEL_API_KEY",
+        credential_url="https://openmodel.ai",
+        credential_attr="openmodel_api_key",
+        default_base_url=OPENMODEL_DEFAULT_BASE,
+        proxy_attr="openmodel_proxy",
         capabilities=(
             "chat",
             "streaming",

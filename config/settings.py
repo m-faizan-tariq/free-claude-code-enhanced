@@ -13,7 +13,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .rotation_settings import (
     validate_rotation_api_keys_json,
-    validate_rotation_chain_json,
 )
 
 from .constants import HTTP_CONNECT_TIMEOUT_DEFAULT
@@ -119,22 +118,21 @@ class Settings(BaseSettings):
         validation_alias="GEMINI_API_KEYS",
         description="JSON list of {label, api_key} for multi-project Gemini keys",
     )
-    gemini_fallback_chain: str = Field(
-        default="[]",
-        validation_alias="GEMINI_FALLBACK_CHAIN",
-        description="JSON ordered list of {label, model, key_label} for Gemini rotation",
-    )
-
     # ==================== OpenRouter Multi-Key Rotation ====================
     openrouter_api_keys: str = Field(
         default="[]",
         validation_alias="OPENROUTER_API_KEYS",
         description="JSON list of {label, api_key} for multi-account OpenRouter keys",
     )
-    openrouter_fallback_chain: str = Field(
+
+    # ==================== OpenModel Config ====================
+    openmodel_api_key: str = Field(default="", validation_alias="OPENMODEL_API_KEY")
+
+    # ==================== OpenModel Multi-Key Rotation ====================
+    openmodel_api_keys: str = Field(
         default="[]",
-        validation_alias="OPENROUTER_FALLBACK_CHAIN",
-        description="JSON ordered list of {label, model, key_label} for OpenRouter rotation",
+        validation_alias="OPENMODEL_API_KEYS",
+        description="JSON list of {label, api_key} for multi-key OpenModel rotation",
     )
 
     # ==================== Groq (OpenAI-compatible) ====================
@@ -201,6 +199,7 @@ class Settings(BaseSettings):
     zai_proxy: str = Field(default="", validation_alias="ZAI_PROXY")
     fireworks_proxy: str = Field(default="", validation_alias="FIREWORKS_PROXY")
     gemini_proxy: str = Field(default="", validation_alias="GEMINI_PROXY")
+    openmodel_proxy: str = Field(default="", validation_alias="OPENMODEL_PROXY")
     groq_proxy: str = Field(default="", validation_alias="GROQ_PROXY")
     cerebras_proxy: str = Field(default="", validation_alias="CEREBRAS_PROXY")
 
@@ -549,6 +548,7 @@ class Settings(BaseSettings):
     @field_validator(
         "gemini_api_keys",
         "openrouter_api_keys",
+        "openmodel_api_keys",
         mode="before",
     )
     @classmethod
@@ -560,21 +560,6 @@ class Settings(BaseSettings):
 
             return validate_rotation_api_keys_json(json.dumps(v))
         raise ValueError("API keys must be a JSON string or list")
-
-    @field_validator(
-        "gemini_fallback_chain",
-        "openrouter_fallback_chain",
-        mode="before",
-    )
-    @classmethod
-    def validate_rotation_chain(cls, v: Any) -> str:
-        if isinstance(v, str):
-            return validate_rotation_chain_json(v)
-        if isinstance(v, list):
-            import json
-
-            return validate_rotation_chain_json(json.dumps(v))
-        raise ValueError("Rotation chain must be a JSON string or list")
 
     @staticmethod
     def parse_provider_type(model_string: str) -> str:

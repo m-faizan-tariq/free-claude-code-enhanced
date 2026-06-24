@@ -457,3 +457,141 @@ textarea {
     flex: 1;
   }
 }
+
+/* Key list widget — per-key add/remove UI */
+.key-list-wrapper {
+  display: grid;
+  gap: 10px;
+}
+
+.key-list-entries {
+  display: grid;
+  gap: 6px;
+}
+
+.key-list-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.key-list-row .key-label {
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 100px;
+}
+
+.key-label-input-inline {
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 80px;
+  max-width: 160px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text);
+  padding: 2px 4px;
+  outline: none;
+  flex-shrink: 0;
+}
+.key-label-input-inline:hover {
+  border-color: var(--line);
+}
+.key-label-input-inline:focus {
+  border-color: var(--accent);
+  background: var(--input);
+}
+
+.key-list-row .key-masked {
+  flex: 1 1 60px;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.key-remove-btn {
+  background: transparent;
+  border: 1px solid var(--error);
+  color: var(--error);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.key-remove-btn:hover {
+  background: rgba(255, 116, 108, 0.12);
+}
+
+.key-list-row-primary {
+  background: rgba(47, 185, 132, 0.08);
+  border-color: rgba(47, 185, 132, 0.3);
+}
+
+.key-list-row-primary .key-label {
+  color: var(--ok);
+}
+
+.disabled-remove {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.key-list-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.key-list-add input {
+  flex: 1;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.key-list-add input.key-label-input {
+  max-width: 160px;
+}
+
+.key-add-btn {
+  min-height: 38px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #06100b;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.key-add-btn:hover {
+  background: var(--accent-dark);
+}
+
+.key-list-wrapper .field-description {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}

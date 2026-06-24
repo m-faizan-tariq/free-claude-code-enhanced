@@ -1,7 +1,8 @@
-"""Multi-key rotation engine: resolves fallback chain steps from config."""
+"""Multi-key rotation engine: round‑robin key selection across configured keys."""
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 
 from loguru import logger
@@ -9,69 +10,71 @@ from loguru import logger
 from config.rotation_settings import (
     mask_api_key,
     parse_api_keys_json,
-    parse_rotation_chain_json,
 )
+
+# Sink is registered in config.logging_config.configure_logging() so it
+# survives the logger.remove() call that happens during application startup.
 
 
 @dataclass
 class RotationStep:
     label: str
-    model: str
-    key_label: str
     api_key: str
+    model: str | None = None
 
 
 class RotationConfig:
-    """Parsed multi-key rotation config with key resolution."""
+    """Round‑robin key rotation across a list of API keys.
 
-    def __init__(self, api_keys_json: str, chain_json: str):
-        self.api_keys = parse_api_keys_json(api_keys_json)
-        self.chain = parse_rotation_chain_json(chain_json)
-        self._key_map: dict[str, str] = {
-            entry["label"]: entry["api_key"] for entry in self.api_keys
-        }
+    If ``single_key`` is provided and rotation is enabled (the list is
+    non‑empty), the single key is prepended to the rotation pool so that
+    both the existing provider key and any rotation keys are cycled.
+    """
+
+    def __init__(self, api_keys_json: str, single_key: str = ""):
+        entries = parse_api_keys_json(api_keys_json)
+        keys_already = {e["api_key"] for e in entries}
+        self._pool: list[RotationStep] = [
+            RotationStep(label=e["label"], api_key=e["api_key"])
+            for e in entries
+        ]
+        if single_key and self._pool and single_key not in keys_already:
+            self._pool.insert(0, RotationStep(
+                label="Primary", api_key=single_key,
+            ))
+        self._cycle = itertools.cycle(self._pool) if self._pool else None
 
     @property
     def enabled(self) -> bool:
-        return len(self.chain) > 0
+        return len(self._pool) > 0
 
-    def resolve_key(self, key_label: str) -> str | None:
-        return self._key_map.get(key_label)
+    def next_key(self) -> RotationStep | None:
+        """Return the next key (round‑robin), or ``None`` if no keys configured."""
+        if self._cycle is None:
+            return None
+        return next(self._cycle)
 
-    def _model_id_only(self, full_model: str) -> str:
-        """Strip provider prefix from 'provider/model/name' → 'model/name'."""
-        parts = full_model.split("/", 1)
-        return parts[1] if len(parts) > 1 else parts[0]
+    _STATUS_LABELS = {200: "OK", 201: "OK", 204: "OK", 401: "unauthorized", 403: "forbidden", 429: "rate_limited", 503: "unavailable"}
 
-    def steps(self) -> list[RotationStep]:
-        """Return resolved chain steps with api_key and model_id."""
-        resolved: list[RotationStep] = []
-        for i, entry in enumerate(self.chain):
-            api_key = self._key_map.get(entry["key_label"])
-            if api_key is None:
-                logger.warning(
-                    "Rotation chain step {}: key_label={} not found in API keys",
-                    i,
-                    entry["key_label"],
-                )
-                continue
-            resolved.append(
-                RotationStep(
-                    label=entry["label"],
-                    model=self._model_id_only(entry["model"]),
-                    key_label=entry["key_label"],
-                    api_key=api_key,
-                )
-            )
-        return resolved
+    def log_attempt(self, step: RotationStep | None, model: str = "", provider: str = "", status: int | None = None, error: str = "") -> None:
+        """Log one rotation attempt with its outcome on a single line."""
+        if step is None:
+            return
+        prov = f"[{provider}]" if provider else ""
+        masked = mask_api_key(step.api_key)
+        model_part = f" model={model or '?'}"
+        if error:
+            suffix = f" ✗ {error}"
+        else:
+            label = self._STATUS_LABELS.get(status or 0, "?")
+            suffix = f" → {status} {label}"
+        msg = f"{prov} key={step.label}{model_part} {masked}{suffix}"
+        logger.bind(rotation=True).info(msg)
 
-    def log_rotation_attempt(self, step: RotationStep, attempt: int, total: int) -> None:
-        """Log a rotation attempt with masked key."""
-        logger.warning(
-            "Rotation attempt {}/{}: label={} key={} model={}",
-            attempt + 1,
-            total,
-            step.label,
-            mask_api_key(step.api_key),
-            step.model,
-        )
+    def log_raw(self, step: RotationStep | None, msg: str, provider: str = "") -> None:
+        """Log a raw diagnostic message associated with a rotation step."""
+        if step is None:
+            return
+        prov = f"[{provider}]" if provider else ""
+        masked = mask_api_key(step.api_key)
+        logger.bind(rotation=True).info(f"{prov} key={step.label} {masked} {msg}")

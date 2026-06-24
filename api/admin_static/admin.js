@@ -6,6 +6,8 @@ const state = {
   activeView: "providers",
 };
 
+const keyListOrigins = new Map();
+
 const MASKED_SECRET = "********";
 const VIEW_GROUPS = [
   {
@@ -19,7 +21,7 @@ const VIEW_GROUPS = [
     id: "key_rotation",
     label: "Key Rotation",
     title: "Key Rotation",
-    sections: ["key_rotation"],
+    sections: ["gemini_keys", "openrouter_keys", "openmodel_keys"],
     containerId: "keyRotationSections",
   },
   {
@@ -115,6 +117,9 @@ async function load() {
   byId("configPath").textContent = config.paths.managed;
   await validate(false);
   await refreshLocalStatus();
+  config.fields
+    .filter((f) => f.type === "key_list")
+    .forEach((f) => keyListOrigins.set(f.key, f.value || "[]"));
   updateDirtyState();
   showMessage("");
 }
@@ -337,6 +342,10 @@ function inputForField(field) {
     return textarea;
   }
 
+  if (field.type === "key_list") {
+    return renderKeyListInput(field);
+  }
+
   const input = document.createElement("input");
   input.type = field.type === "number" ? "number" : "text";
   if (field.type === "secret") {
@@ -375,7 +384,10 @@ function changedValues() {
   document.querySelectorAll("[data-key]").forEach((input) => {
     if (input.disabled || !input.matches("input, select, textarea")) return;
     const value = readFieldValue(input);
-    if (value !== input.dataset.original) {
+    const original = keyListOrigins.has(input.dataset.key)
+      ? keyListOrigins.get(input.dataset.key)
+      : input.dataset.original;
+    if (value !== original) {
       values[input.dataset.key] = value;
     }
   });
@@ -498,6 +510,146 @@ function showMessage(message, kind = "") {
 
 byId("validateButton").addEventListener("click", () => validate(true));
 byId("applyButton").addEventListener("click", apply);
+
+function renderKeyListInput(field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "key-list-wrapper";
+
+  const primaryKeyName = field.key === "GEMINI_API_KEYS" ? "GEMINI_API_KEY"
+    : field.key === "OPENMODEL_API_KEYS" ? "OPENMODEL_API_KEY"
+    : "OPENROUTER_API_KEY";
+  const primaryField = state.fields.get(primaryKeyName);
+  const primaryValue = (primaryField && primaryField.configured && primaryField.value) || "";
+
+  const hidden = document.createElement("textarea");
+  hidden.style.display = "none";
+  hidden.value = field.value || "[]";
+  hidden.dataset.key = field.key;
+  hidden.dataset.original = hidden.value;
+  keyListOrigins.set(field.key, hidden.value);
+  hidden.dataset.originalPrimaryLabel = "";
+  hidden.disabled = field.locked;
+  wrapper.appendChild(hidden);
+
+  const list = document.createElement("div");
+  list.className = "key-list-entries";
+  wrapper.appendChild(list);
+
+  const addForm = document.createElement("div");
+  addForm.className = "key-list-add";
+  addForm.innerHTML =
+    '<input type="text" class="key-label-input" placeholder="Label (e.g. Project A)" />' +
+    '<input type="password" class="key-value-input" placeholder="API key" />' +
+    '<button type="button" class="key-add-btn">Add</button>';
+  wrapper.appendChild(addForm);
+
+  function renderKeys() {
+    let keys;
+    try {
+      keys = JSON.parse(hidden.value);
+    } catch {
+      keys = [];
+    }
+    list.innerHTML = "";
+
+    if (primaryValue) {
+      const row = document.createElement("div");
+      row.className = "key-list-row key-list-row-primary";
+      const masked = primaryValue.length > 8
+        ? primaryValue.slice(0, 4) + "…" + primaryValue.slice(-4)
+        : "……";
+      const labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.className = "key-label-input-inline";
+      labelInput.value = hidden.dataset.primaryLabel || "Primary";
+      labelInput.placeholder = "Label";
+      labelInput.addEventListener("change", () => {
+        hidden.dataset.primaryLabel = labelInput.value.trim() || "Primary";
+        labelInput.value = hidden.dataset.primaryLabel;
+        updateDirtyState();
+      });
+      row.appendChild(labelInput);
+      const code = document.createElement("code");
+      code.className = "key-masked";
+      code.textContent = masked;
+      row.appendChild(code);
+      const badge = document.createElement("span");
+      badge.className = "disabled-remove";
+      badge.textContent = "In use";
+      row.appendChild(badge);
+      list.appendChild(row);
+    }
+
+    function makeKeyRow(entry, index) {
+      if (entry.key && !entry.api_key) entry.api_key = entry.key;
+      const row = document.createElement("div");
+      row.className = "key-list-row";
+      const masked = entry.api_key.length > 8
+        ? entry.api_key.slice(0, 4) + "…" + entry.api_key.slice(-4)
+        : "……";
+      const labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.className = "key-label-input-inline";
+      labelInput.value = entry.label;
+      labelInput.placeholder = "Label";
+      labelInput.addEventListener("change", () => {
+        keys[index].label = labelInput.value.trim() || entry.label;
+        labelInput.value = keys[index].label;
+        hidden.value = JSON.stringify(keys, null, 2);
+        updateDirtyState();
+      });
+      row.appendChild(labelInput);
+      const code = document.createElement("code");
+      code.className = "key-masked";
+      code.textContent = masked;
+      row.appendChild(code);
+      const rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "key-remove-btn";
+      rmBtn.textContent = "Remove";
+      rmBtn.addEventListener("click", () => {
+        keys.splice(index, 1);
+        hidden.value = JSON.stringify(keys, null, 2);
+        renderKeys();
+        updateDirtyState();
+      });
+      row.appendChild(rmBtn);
+      return row;
+    }
+    keys.forEach((entry, index) => {
+      list.appendChild(makeKeyRow(entry, index));
+    });
+  }
+
+  addForm.querySelector(".key-add-btn").addEventListener("click", () => {
+    const labelInput = addForm.querySelector(".key-label-input");
+    const valueInput = addForm.querySelector(".key-value-input");
+    const label = labelInput.value.trim();
+    const apiKey = valueInput.value.trim();
+    if (!label || !apiKey) return;
+    let keys;
+    try {
+      keys = JSON.parse(hidden.value);
+    } catch {
+      keys = [];
+    }
+    keys.push({ label, api_key: apiKey });
+    hidden.value = JSON.stringify(keys, null, 2);
+    labelInput.value = "";
+    valueInput.value = "";
+    renderKeys();
+    updateDirtyState();
+  });
+
+  renderKeys();
+  return wrapper;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.appendChild(document.createTextNode(text));
+  return div.innerHTML;
+}
 
 load().catch((error) => {
   showMessage(error.message, "error");

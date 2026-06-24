@@ -140,6 +140,13 @@ def configure_logging(
         enqueue=True,
     )
 
+    # Rotation monitoring sink: plain‑text, rotation‑filtered, separate file
+    logger.add(
+        "/tmp/fcc-rotation.log",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {message}",
+        filter=lambda r: r.get("extra", {}).get("rotation"),
+    )
+
     # Intercept stdlib logging: route all root logger output to loguru
     intercept = InterceptHandler()
     logging.root.handlers = [intercept]

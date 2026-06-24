@@ -129,6 +129,78 @@ def dump_raw_messages_request(request_data: Any) -> dict[str, Any]:
     return _dump_request_fields(request_data)
 
 
+def fix_anthropic_messages_tool_sequence(messages: list[Any]) -> list[Any]:
+    """Remove orphan ``tool_use`` blocks that lack corresponding ``tool_result`` blocks.
+
+    In the Anthropic Messages API every ``tool_use`` block in an assistant message
+    must have a matching ``tool_result`` block in the very next user message.
+    Some clients (e.g. OpenCode) sometimes re-send conversation history where a
+    prior ``tool_use`` no longer has its corresponding ``tool_result``, which
+    causes upstream providers like OpenModel to reject the request with HTTP 400.
+    """
+    if not isinstance(messages, list):
+        return messages
+
+    fixed = list(messages)
+    total_stripped = 0
+    for i, msg in enumerate(fixed):
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+
+        tool_use_blocks = [
+            b for b in content
+            if isinstance(b, dict) and b.get("type") == "tool_use" and isinstance(b.get("id"), str)
+        ]
+        if not tool_use_blocks:
+            continue
+
+        tool_use_ids = {b["id"] for b in tool_use_blocks}
+
+        resolved_ids: set[str] = set()
+        if i + 1 < len(fixed):
+            nxt = fixed[i + 1]
+            if isinstance(nxt, dict) and nxt.get("role") == "user":
+                nxt_content = nxt.get("content")
+                if isinstance(nxt_content, list):
+                    tool_results = [
+                        b for b in nxt_content
+                        if isinstance(b, dict) and b.get("type") == "tool_result"
+                        and isinstance(b.get("tool_use_id"), str)
+                    ]
+                    resolved_ids = {b["tool_use_id"] for b in tool_results}
+                else:
+                    from loguru import logger
+                    logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but next msg content is not a list: type={type(nxt_content).__name__}")
+            else:
+                from loguru import logger
+                nxt_role = nxt.get("role") if isinstance(nxt, dict) else type(nxt).__name__
+                logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but next msg role='{nxt_role}' (expected 'user')")
+        else:
+            from loguru import logger
+            logger.warning(f"messages[{i}] has tool_use ids={tool_use_ids} but no next message exists")
+
+        orphan_ids = tool_use_ids - resolved_ids
+        if not orphan_ids:
+            continue
+
+        from loguru import logger
+        logger.info(f"Stripping {len(orphan_ids)} orphan tool_use(s) ids={orphan_ids} from messages[{i}] (resolved={resolved_ids})")
+
+        cleaned = [
+            b for b in content
+            if not (isinstance(b, dict) and b.get("type") == "tool_use"
+                    and b.get("id") in orphan_ids)
+        ]
+        fixed[i] = dict(msg)
+        fixed[i]["content"] = cleaned if cleaned else ""
+        total_stripped += len(orphan_ids)
+
+    return fixed
+
+
 def sanitize_native_messages_thinking_policy(
     messages: Any, *, thinking_enabled: bool
 ) -> Any:
@@ -240,6 +312,7 @@ def build_base_native_anthropic_request_body(
             body["messages"],
             thinking_enabled=thinking_enabled,
         )
+        body["messages"] = fix_anthropic_messages_tool_sequence(body["messages"])
 
     return body
 
@@ -268,6 +341,8 @@ def build_openrouter_native_request_body(
         body.get("messages"),
         thinking_enabled=thinking_enabled,
     )
+    if isinstance(body.get("messages"), list):
+        body["messages"] = fix_anthropic_messages_tool_sequence(body["messages"])
     if "system" in body:
         body["system"] = _normalize_system_prompt_for_openrouter(body["system"])
     body["stream"] = True

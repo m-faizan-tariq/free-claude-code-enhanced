@@ -22,49 +22,13 @@ class TestGeminiMultiKeySettings:
             {"label": "Project B", "api_key": "AIza-test-key-b"},
         ]
 
-    def test_gemini_fallback_chain_roundtrip(self, monkeypatch):
-        chain_json = json.dumps([
-            {
-                "label": "Primary",
-                "model": "gemini/models/gemini-3.1-flash-lite",
-                "key_label": "__default__",
-            },
-            {
-                "label": "Backup A",
-                "model": "gemini/models/gemini-3.1-flash-lite",
-                "key_label": "Project A",
-            },
-        ])
-        monkeypatch.setenv("GEMINI_FALLBACK_CHAIN", chain_json)
-        settings = Settings()
-        parsed = json.loads(settings.gemini_fallback_chain)
-        assert parsed == [
-            {
-                "label": "Primary",
-                "model": "gemini/models/gemini-3.1-flash-lite",
-                "key_label": "__default__",
-            },
-            {
-                "label": "Backup A",
-                "model": "gemini/models/gemini-3.1-flash-lite",
-                "key_label": "Project A",
-            },
-        ]
-
-    def test_missing_gemini_api_keys_fallback_no_error(self, monkeypatch):
+    def test_missing_gemini_api_keys_no_error(self, monkeypatch):
         monkeypatch.delenv("GEMINI_API_KEYS", raising=False)
-        monkeypatch.delenv("GEMINI_FALLBACK_CHAIN", raising=False)
         settings = Settings()
         assert json.loads(settings.gemini_api_keys) == []
-        assert json.loads(settings.gemini_fallback_chain) == []
 
     def test_invalid_json_gemini_api_keys_raises(self, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEYS", "not-valid-json")
-        with pytest.raises(ValidationError):
-            Settings()
-
-    def test_invalid_json_gemini_fallback_chain_raises(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_FALLBACK_CHAIN", "{bad json}")
         with pytest.raises(ValidationError):
             Settings()
 
@@ -89,31 +53,10 @@ class TestOpenRouterMultiKeySettings:
         parsed = json.loads(settings.openrouter_api_keys)
         assert parsed == [{"label": "Account 1", "api_key": "sk-or-v1-test-key"}]
 
-    def test_openrouter_fallback_chain_roundtrip(self, monkeypatch):
-        chain_json = json.dumps([
-            {
-                "label": "Primary",
-                "model": "open_router/models/test-model",
-                "key_label": "__default__",
-            },
-        ])
-        monkeypatch.setenv("OPENROUTER_FALLBACK_CHAIN", chain_json)
-        settings = Settings()
-        parsed = json.loads(settings.openrouter_fallback_chain)
-        assert parsed == [
-            {
-                "label": "Primary",
-                "model": "open_router/models/test-model",
-                "key_label": "__default__",
-            },
-        ]
-
-    def test_missing_openrouter_api_keys_fallback_no_error(self, monkeypatch):
+    def test_missing_openrouter_api_keys_no_error(self, monkeypatch):
         monkeypatch.delenv("OPENROUTER_API_KEYS", raising=False)
-        monkeypatch.delenv("OPENROUTER_FALLBACK_CHAIN", raising=False)
         settings = Settings()
         assert json.loads(settings.openrouter_api_keys) == []
-        assert json.loads(settings.openrouter_fallback_chain) == []
 
     def test_invalid_json_openrouter_settings_raises(self, monkeypatch):
         monkeypatch.setenv("OPENROUTER_API_KEYS", "bad json")

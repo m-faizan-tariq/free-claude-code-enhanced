@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -24,6 +25,7 @@ FieldType = Literal[
     "tri_boolean",
     "select",
     "textarea",
+    "key_list",
 ]
 SourceType = Literal[
     "default",
@@ -69,12 +71,22 @@ SECTIONS: tuple[ConfigSectionSpec, ...] = (
     ConfigSectionSpec(
         "providers",
         "Providers",
-        "Provider keys, local endpoints, and proxy settings.",
+        "Provider keys, local endpoints, and proxy settings. Live request log: tail -f /tmp/fcc-requests.log",
     ),
     ConfigSectionSpec(
-        "key_rotation",
-        "Key Rotation",
-        "Multi-project key rotation and fallback chains for Gemini and OpenRouter.",
+        "gemini_keys",
+        "Gemini API Keys",
+        "Round‑robin across multiple Google Cloud projects. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+    ),
+    ConfigSectionSpec(
+        "openrouter_keys",
+        "OpenRouter API Keys",
+        "Round‑robin across multiple OpenRouter accounts. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+    ),
+    ConfigSectionSpec(
+        "openmodel_keys",
+        "OpenModel API Keys",
+        "Round‑robin across multiple OpenModel keys. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
     ),
     ConfigSectionSpec(
         "models",
@@ -215,6 +227,19 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         settings_attr="fireworks_api_key",
         secret=True,
         description="Fireworks AI inference API key.",
+    ),
+    ConfigFieldSpec(
+        "OPENMODEL_API_KEY",
+        "OpenModel API Key",
+        "providers",
+        "secret",
+        settings_attr="openmodel_api_key",
+        secret=True,
+        description=(
+            "OpenModel Anthropic-compatible Messages API key "
+            "([api.openmodel.ai](https://api.openmodel.ai)); "
+            "supports 1M context window with deepseek-v4-flash."
+        ),
     ),
     ConfigFieldSpec(
         "GEMINI_API_KEY",
@@ -395,40 +420,40 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         advanced=True,
     ),
     ConfigFieldSpec(
-        "GEMINI_API_KEYS",
-        "Gemini API Keys (JSON)",
-        "key_rotation",
-        "textarea",
-        settings_attr="gemini_api_keys",
-        default="[]",
-        description="JSON list of {\"label\", \"api_key\"} for multiple Gemini projects.",
+        "OPENMODEL_PROXY",
+        "OpenModel Proxy",
+        "providers",
+        "secret",
+        settings_attr="openmodel_proxy",
+        secret=True,
+        advanced=True,
     ),
     ConfigFieldSpec(
-        "GEMINI_FALLBACK_CHAIN",
-        "Gemini Fallback Chain (JSON)",
-        "key_rotation",
-        "textarea",
-        settings_attr="gemini_fallback_chain",
+        "GEMINI_API_KEYS",
+        "Keys",
+        "gemini_keys",
+        "key_list",
+        settings_attr="gemini_api_keys",
         default="[]",
-        description="JSON ordered list of {\"label\", \"model\", \"key_label\"} for Gemini rotation.",
+        description="Add API keys from multiple Google Cloud projects for round‑robin rotation.",
     ),
     ConfigFieldSpec(
         "OPENROUTER_API_KEYS",
-        "OpenRouter API Keys (JSON)",
-        "key_rotation",
-        "textarea",
+        "Keys",
+        "openrouter_keys",
+        "key_list",
         settings_attr="openrouter_api_keys",
         default="[]",
-        description="JSON list of {\"label\", \"api_key\"} for multiple OpenRouter accounts.",
+        description="Add API keys from multiple OpenRouter accounts for round‑robin rotation.",
     ),
     ConfigFieldSpec(
-        "OPENROUTER_FALLBACK_CHAIN",
-        "OpenRouter Fallback Chain (JSON)",
-        "key_rotation",
-        "textarea",
-        settings_attr="openrouter_fallback_chain",
+        "OPENMODEL_API_KEYS",
+        "Keys",
+        "openmodel_keys",
+        "key_list",
+        settings_attr="openmodel_api_keys",
         default="[]",
-        description="JSON ordered list of {\"label\", \"model\", \"key_label\"} for OpenRouter rotation.",
+        description="Add API keys from multiple OpenModel accounts for round‑robin rotation.",
     ),
     ConfigFieldSpec(
         "GROQ_PROXY",
@@ -1050,9 +1075,29 @@ def _normalize_for_env(value: Any) -> str:
     return str(value)
 
 
+def _normalize_key_list(value: str) -> str:
+    """Normalise ``"key"`` → ``"api_key"`` in a key-list JSON string."""
+    if not value or value == "[]":
+        return value
+    try:
+        entries = json.loads(value)
+    except json.JSONDecodeError:
+        return value
+    if not isinstance(entries, list):
+        return value
+    changed = False
+    for entry in entries:
+        if isinstance(entry, dict) and "key" in entry and "api_key" not in entry:
+            entry["api_key"] = entry.pop("key")
+            changed = True
+    return json.dumps(entries) if changed else value
+
+
 def _display_value(field: ConfigFieldSpec, value: str) -> str:
     if field.secret and value:
         return MASKED_SECRET
+    if field.field_type == "key_list":
+        return _normalize_key_list(value)
     return value
 
 

@@ -12,6 +12,21 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 
+_REQUEST_LOG = open("/tmp/fcc-requests.log", "a", 1)
+
+
+def _log_request(provider_id: str, model: str, gw_model: str, req_id: str) -> None:
+    from datetime import datetime
+    _REQUEST_LOG.write(f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{provider_id}] model={model} gw_model={gw_model} {req_id}\n")
+
+
+def _log_outcome(req_id: str, status: str, detail: str = "") -> None:
+    from datetime import datetime
+    line = f"{datetime.now():%Y-%m-%d %H:%M:%S.%f} | [{req_id}] status={status}"
+    if detail:
+        line += f" detail={detail}"
+    _REQUEST_LOG.write(line + "\n")
+
 from config.provider_catalog import PROVIDER_CATALOG
 from config.settings import Settings
 from core.anthropic import get_token_count, get_user_facing_error_message
@@ -355,6 +370,8 @@ class ApiRequestPipeline:
         raw_log_payload: Any,
     ) -> AsyncIterator[str]:
         provider = self._provider_getter(routed.resolved.provider_id)
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+        _log_request(routed.resolved.provider_id, routed.resolved.provider_model, routed.request.model, request_id)
         provider.preflight_stream(
             routed.request,
             thinking_enabled=routed.resolved.thinking_enabled,
@@ -374,7 +391,6 @@ class ApiRequestPipeline:
             route_trace["wire_api"] = "responses"
         trace_event(**route_trace)
 
-        request_id = f"req_{uuid.uuid4().hex[:12]}"
         trace_event(
             stage="ingress",
             event=(
@@ -396,29 +412,40 @@ class ApiRequestPipeline:
             routed.request.system,
             routed.request.tools,
         )
-        return traced_async_stream(
-            provider.stream_response(
-                routed.request,
-                input_tokens=input_tokens,
-                request_id=request_id,
-                thinking_enabled=routed.resolved.thinking_enabled,
-            ),
-            stage="egress",
-            source="api",
-            complete_event=(
-                "api.responses.stream_completed"
-                if wire_api == "responses"
-                else "api.response.stream_completed"
-            ),
-            interrupted_event=(
-                "api.responses.stream_interrupted"
-                if wire_api == "responses"
-                else "api.response.stream_interrupted"
-            ),
-            chunk_event=None,
-            extra={
-                "request_id": request_id,
-                "provider_id": routed.resolved.provider_id,
-                "gateway_model": routed.request.model,
-            },
+        async def _log_wrapper(inner: AsyncIterator[str]) -> AsyncIterator[str]:
+            try:
+                async for event in inner:
+                    yield event
+                _log_outcome(request_id, "success")
+            except Exception as e:
+                _log_outcome(request_id, "error", str(e))
+                raise
+
+        return _log_wrapper(
+            traced_async_stream(
+                provider.stream_response(
+                    routed.request,
+                    input_tokens=input_tokens,
+                    request_id=request_id,
+                    thinking_enabled=routed.resolved.thinking_enabled,
+                ),
+                stage="egress",
+                source="api",
+                complete_event=(
+                    "api.responses.stream_completed"
+                    if wire_api == "responses"
+                    else "api.response.stream_completed"
+                ),
+                interrupted_event=(
+                    "api.responses.stream_interrupted"
+                    if wire_api == "responses"
+                    else "api.response.stream_interrupted"
+                ),
+                chunk_event=None,
+                extra={
+                    "request_id": request_id,
+                    "provider_id": routed.resolved.provider_id,
+                    "gateway_model": routed.request.model,
+                },
+            )
         )

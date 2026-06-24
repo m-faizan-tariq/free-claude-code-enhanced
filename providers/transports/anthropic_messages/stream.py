@@ -102,6 +102,9 @@ class AnthropicMessagesStreamRunner:
             request_id=self._request_id,
         )
 
+        transport_retries = 0
+        TRANSPORT_RETRY_MAX = 3
+
         async with self._transport._global_rate_limiter.concurrency_slot():
             while True:
                 stream_opened = False
@@ -202,6 +205,23 @@ class AnthropicMessagesStreamRunner:
                             for event in recovery_events:
                                 yield event
                             return
+
+                        # If recovery failed due to a transport error, retry the full
+                        # request with the next rotation key instead of giving up.
+                        if (
+                            transport_retries < TRANSPORT_RETRY_MAX
+                            and isinstance(error, (httpx.ReadError, httpx.ConnectError, httpx.RemoteProtocolError, httpx.NetworkError))
+                        ):
+                            transport_retries += 1
+                            if response is not None and not response.is_closed:
+                                await maybe_await_aclose(response)
+                            response = None
+                            state = self._transport._new_stream_state(
+                                self._request, thinking_enabled=thinking_enabled
+                            )
+                            emitted_tracker = EmittedNativeSseTracker()
+                            sent_any_event = False
+                            continue
 
                     if not isinstance(error, httpx.HTTPStatusError):
                         self._transport._log_stream_transport_error(

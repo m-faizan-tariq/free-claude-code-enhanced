@@ -1,12 +1,12 @@
-# PRD: Multi-Key API Rotation for Gemini and OpenRouter Providers
+# PRD: Multi-Key API Rotation for Gemini, OpenRouter, and OpenModel Providers
 
 ## Overview
 
-Add multi-key rotation (ordered fallback chain) to the Gemini and OpenRouter
-providers so that when one API key's quota is exhausted (HTTP 429), the proxy
-automatically rotates to the next key in the chain. The Admin UI gains key
-management panels and a dedicated Fallback Chain section for configuring
-rotation priority.
+Add multi-key round‑robin rotation to the Gemini, OpenRouter, and OpenModel
+providers so that each request uses the next API key in sequence, balancing
+load across multiple Google Cloud projects / OpenRouter accounts / OpenModel
+keys. The Admin UI gains key management panels and a dedicated Rotation Chain
+section for configuring ordered rotation with optional model overrides.
 
 **Language convention:** Everywhere — spec, code comments, UI labels, commit
 messages, docs — describe this as "key rotation" and "load balancing across
@@ -16,22 +16,20 @@ Google Cloud projects / OpenRouter accounts". Never use "bypass", "circumvent",
 ---
 
 ## Feature A: Multi-Key Gemini Rotation
+_(OpenModel uses identical rotation mechanics — see Feature G)_
 
 ### Objectives
 - Store N labeled Gemini API keys (each from a separate Google Cloud project).
-- On HTTP 429, iterate through the fallback chain in order.
-- Each chain entry specifies a (model, key_label) pair; if key_label is
-  `__default__`, use the existing single `GEMINI_API_KEY`.
+- Round-robin across keys per-request: request N uses key N % len(keys).
+- Rotate through `GEMINI_API_KEYS` directly (no chain).
 
 ### Success Criteria
-- 2 keys in chain; key 1 → 429; key 2 → 200; request succeeds.
-- All keys exhausted → caller sees a proper 429 error.
-- No chain configured → single-key path is identical to today.
+- 2 keys configured; request 1 → key A, request 2 → key B, request 3 → key A.
+- No keys configured → single-key path is identical to today.
 
 ### Data Structures
 ```json
 GEMINI_API_KEYS = '[{"label":"Project A","api_key":"AIza..."},{"label":"Project B","api_key":"AIza..."}]'
-GEMINI_FALLBACK_CHAIN = '[{"label":"Primary","model":"gemini/models/gemini-3.1-flash-lite","key_label":"__default__"},{"label":"Backup A","model":"gemini/models/gemini-3.1-flash-lite","key_label":"Project A"}]'
 ```
 
 ---
@@ -40,71 +38,43 @@ GEMINI_FALLBACK_CHAIN = '[{"label":"Primary","model":"gemini/models/gemini-3.1-f
 
 ### Objectives
 - Store N labeled OpenRouter API keys.
-- On HTTP 429, iterate through the fallback chain in order.
-- Each chain entry specifies a (model, key_label) pair; if key_label is
-  `__default__`, use the existing single `OPENROUTER_API_KEY`.
+- Round-robin across keys per-request (same model as Feature A).
 
 ### Success Criteria
-- Same as Feature A but for OpenRouter (native Anthropic transport).
-- All keys exhausted → caller sees proper 429.
+- 2 keys configured; request 1 → key A, request 2 → key B, request 3 → key A.
+- No keys configured → single-key path is identical to today.
 
 ### Data Structures
 ```json
 OPENROUTER_API_KEYS = '[{"label":"Account A","api_key":"sk-or-v1-..."}]'
-OPENROUTER_FALLBACK_CHAIN = '[{"label":"Primary","model":"open_router/models/some-model","key_label":"__default__"},{"label":"Backup","model":"open_router/models/some-model","key_label":"Account A"}]'
 ```
 
 ---
 
 ## Feature C: Admin UI — Key Management Panels
 
-### Provider Section Changes
-
-Gemini — new sub-section "Additional Gemini API Keys (Key Rotation)":
-- List of saved keys: [label] [•••••••••XXXX] [Edit] [Remove]
-- "+ Add Key" button → inline form with Label + password API Key input
-- Existing GEMINI_API_KEY field stays unchanged
-- Description: "Register API keys from multiple Google Cloud projects for
-  automatic rotation. Each key should belong to a separate Google Cloud project."
-
-OpenRouter — same pattern, sub-section "Additional OpenRouter API Keys (Key Rotation)".
-
-### API Endpoints (per provider)
-```
-GET    /admin/providers/{provider}/keys
-POST   /admin/providers/{provider}/keys       {label, api_key}
-DELETE /admin/providers/{provider}/keys/{label}
-PUT    /admin/providers/{provider}/keys/{label}  {label?, api_key?}
-```
-
-All responses mask api_key: `"...XXXX"` (last 4 chars only).
-
----
-
-## Feature D: Admin UI — Fallback Chain Section
-
 ### Sidebar
-New nav item "Fallback Chain" between "Providers" and "Model Config" in
+Nav item "Key Rotation" between "Providers" and "Model Config" in
 `VIEW_GROUPS`.
 
 ### Content
-Two sub-sections: "Gemini Rotation Chain" and "OpenRouter Rotation Chain".
+Two sub-sections: "Gemini API Keys" and "OpenRouter API Keys".
 
 Each shows:
-- Ordered step list: [position] [label] [model] [key_label] [↑Up] [↓Down] [Remove]
-- "+ Add Step" form: Label (text), Model (text, pre-filled), Key (dropdown from
-  GET keys + "(Default) __default__")
-- Up/Down calls PUT .../reorder with full reordered array
-- Description: "When this provider's active key exhausts its quota, the proxy
-  automatically rotates to the next step in this chain."
+- List of saved keys: [label] [masked key] [Remove]
+- "+ Add Key" form: Label (text) + API Key (password) + Add button
+- Description: "Add API keys from multiple Google Cloud projects / OpenRouter
+  accounts for round‑robin rotation."
 
-### API Endpoints (per provider)
-```
-GET    /admin/fallback-chain/{provider}
-POST   /admin/fallback-chain/{provider}       {label, model, key_label}
-DELETE /admin/fallback-chain/{provider}/{index}
-PUT    /admin/fallback-chain/{provider}/reorder  [steps...]
-```
+Keys are stored as a JSON array in the env file. Admin UI renders them with
+per-key input fields and add/remove controls — no JSON editing required by the
+user.
+
+Existing `GEMINI_API_KEY` / `OPENROUTER_API_KEY` fields stay unchanged.
+
+---
+
+
 
 ---
 
@@ -131,25 +101,23 @@ PUT    /admin/fallback-chain/{provider}/reorder  [steps...]
 ## Testing Strategy
 
 ### Unit Tests (Provider Level)
-1. Fallback chain: first key 429 → second key 200 → success.
-2. Fallback chain: all keys 429 → rate-limit exception raised.
-3. No chain configured: regression — single-key path.
-4. Model override in chain entry.
-5. No key values in log output (caplog).
+1. Round-robin: 2 keys, 3 requests → key1, key2, key1.
+2. No keys configured → single-key path (regression).
+3. Single key configured → same key returned every time.
+4. No key values in log output (caplog).
 
 ### Config Tests
 - JSON round-trip for all 4 new settings.
-- Missing keys → no error, single-key fallback.
+- Missing keys → no error, single-key path.
 - Invalid JSON → ConfigurationError.
 
 ### Integration Tests (Admin API)
-- CRUD for keys (create, read masked, update, delete).
-- CRUD for fallback chain (create, read, delete by index, reorder).
+- Config fields present in API response.
+- Apply/validate round-trips for key list fields.
 
 ### Validation Tests
-- Invalid key_label → structured error.
-- Wrong model prefix → structured error.
-- Duplicate labels → structured error.
+- Missing label → structured error.
+- Missing api_key → structured error.
 
 ### Regression
 - All existing provider tests pass.
@@ -160,11 +128,45 @@ PUT    /admin/fallback-chain/{provider}/reorder  [steps...]
 
 ## Out of Scope
 
-- Round-robin rotation (ordered chain only).
+- Error-based retry (rate limit retry is handled by the global rate limiter, not key rotation).
 - External load balancer / API gateway.
 - Exponential backoff per key (global rate limiter already does this).
-- Features for any provider other than Gemini and OpenRouter.
+- Features for any provider other than Gemini, OpenRouter, and OpenModel.
 - Persistent key storage outside the existing env file mechanism.
+
+### Objectives
+
+Add the same round‑robin rotation pattern to the OpenModel Anthropic-compatible
+provider, using identical rotation mechanics as Gemini/OpenRouter.
+
+### Key Details
+
+- Provider ID: ``openmodel``
+- Transport: ``anthropic_messages`` (Anthropic Messages API at ``api.openmodel.ai/v1``)
+- Model: ``deepseek-v4-flash`` (1M context, 8,192 max output)
+- Auth: Bearer token (``om-...`` keys)
+- Rotation env: ``OPENMODEL_API_KEYS`` (same JSON format as ``GEMINI_API_KEYS``)
+- Admin section: ``openmodel_keys`` in the Key Rotation view group
+
+### File Changes
+
+| File | Change |
+|------|--------|
+| `providers/openmodel/client.py` | New — ``OpenModelProvider`` with rotation via ``_validated_stream_send`` |
+| `providers/openmodel/__init__.py` | New — exports |
+| `config/provider_catalog.py` | ``OPENMODEL_DEFAULT_BASE`` constant + ``openmodel`` descriptor |
+| `config/defaults.py` | Re-export ``OPENMODEL_DEFAULT_BASE`` |
+| `config/settings.py` | ``openmodel_api_key``, ``openmodel_api_keys``, ``openmodel_proxy`` fields |
+| `providers/registry.py` | ``_create_openmodel`` factory with ``RotationConfig`` |
+| `api/admin_config.py` | ``openmodel_keys`` section + ``OPENMODEL_API_KEY`` / ``OPENMODEL_API_KEYS`` fields |
+| `api/admin_static/admin.js` | ``openmodel_keys`` in key_rotation view group; primary key mapping |
+| `.env.example` | ``OPENMODEL_API_KEY``, ``OPENMODEL_API_KEYS``, ``OPENMODEL_PROXY`` |
+| `tests/` | Provider order, registry mock, factory instantiation test |
+| `docs/spec/001-multi-key-rotation-spec.md` | This section |
+
+---
+
+## Task Breakdown (13 slices)
 
 ---
 
@@ -180,7 +182,8 @@ PUT    /admin/fallback-chain/{provider}/reorder  [steps...]
 | 6 | Admin API — OpenRouter keys + chain | `api/admin_routes.py` | `feat(api): OpenRouter multi-key and fallback chain` |
 | 7 | Admin UI — Gemini key panel | `api/admin_static/admin.js`, `index.html` | `feat(admin-ui): Gemini key rotation panel` |
 | 8 | Admin UI — OpenRouter key panel | `api/admin_static/admin.js`, `index.html` | `feat(admin-ui): OpenRouter key rotation panel` |
-| 9 | Admin UI — Fallback Chain section | `api/admin_static/admin.js`, `index.html` | `feat(admin-ui): Fallback Chain sidebar section` |
+| 9 | Admin UI — Key management panels | `api/admin_static/admin.js`, `index.html`, `admin.css` | `feat(admin-ui): per-key add/remove UI` |
 | 10 | Validation | `api/admin_config.py` | `feat(api): extend validation for multi-key settings` |
 | 11 | Tests | `tests/` | `test: full coverage for multi-key rotation` |
 | 12 | Docs | `docs/adr/`, `CHANGELOG.md` | `docs: ADR, CHANGELOG, docstrings` |
+| 13 | OpenModel rotation | `providers/openmodel/`, `config/settings.py`, `config/provider_catalog.py`, `api/admin_config.py`, `api/admin_static/admin.js` | `feat(providers/openmodel): multi-key rotation` |

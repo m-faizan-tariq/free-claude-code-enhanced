@@ -40,28 +40,21 @@ def test_models_list_includes_configured_refs_cached_provider_models_and_aliases
     data = response.json()
     ids = [item["id"] for item in data["data"]]
 
-    assert ids[:6] == [
+    assert ids[:3] == [
         "anthropic/deepseek/deepseek-chat",
-        "claude-3-freecc-no-thinking/deepseek/deepseek-chat",
         "anthropic/open_router/anthropic/claude-opus",
-        "claude-3-freecc-no-thinking/open_router/anthropic/claude-opus",
         "anthropic/open_router/meta/llama-3.3",
-        "claude-3-freecc-no-thinking/open_router/meta/llama-3.3",
     ]
     assert ids.count("anthropic/deepseek/deepseek-chat") == 1
-    assert ids.count("claude-3-freecc-no-thinking/deepseek/deepseek-chat") == 1
+    assert ids.count("claude-3-freecc-no-thinking/deepseek/deepseek-chat") == 0
     assert ids.count("anthropic/open_router/anthropic/claude-opus") == 1
     assert (
-        ids.count("claude-3-freecc-no-thinking/open_router/anthropic/claude-opus") == 1
+        ids.count("claude-3-freecc-no-thinking/open_router/anthropic/claude-opus") == 0
     )
     display_names = {item["id"]: item["display_name"] for item in data["data"]}
     assert (
         display_names["anthropic/open_router/meta/llama-3.3"]
         == "open_router/meta/llama-3.3"
-    )
-    assert (
-        display_names["claude-3-freecc-no-thinking/open_router/meta/llama-3.3"]
-        == "open_router/meta/llama-3.3 (no thinking)"
     )
     assert "claude-sonnet-4-20250514" in ids
     assert data["first_id"] == ids[0]
@@ -92,9 +85,9 @@ def test_models_list_uses_openrouter_thinking_metadata_for_cached_models():
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
     assert "anthropic/open_router/reasoning-model" in ids
-    assert "claude-3-freecc-no-thinking/open_router/reasoning-model" in ids
-    assert "anthropic/open_router/plain-model" not in ids
-    assert "claude-3-freecc-no-thinking/open_router/plain-model" in ids
+    assert "claude-3-freecc-no-thinking/open_router/reasoning-model" not in ids
+    assert "anthropic/open_router/plain-model" in ids
+    assert "claude-3-freecc-no-thinking/open_router/plain-model" not in ids
 
 
 def test_models_list_uses_cached_metadata_for_configured_openrouter_refs():
@@ -119,8 +112,7 @@ def test_models_list_uses_cached_metadata_for_configured_openrouter_refs():
 
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
-    assert "anthropic/open_router/plain-model" not in ids
-    assert ids[0] == "claude-3-freecc-no-thinking/open_router/plain-model"
+    assert ids[0] == "anthropic/open_router/plain-model"
 
 
 def test_models_list_includes_cached_wafer_models():
@@ -143,9 +135,9 @@ def test_models_list_includes_cached_wafer_models():
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
     assert "anthropic/wafer/DeepSeek-V4-Pro" in ids
-    assert "claude-3-freecc-no-thinking/wafer/DeepSeek-V4-Pro" in ids
+    assert "claude-3-freecc-no-thinking/wafer/DeepSeek-V4-Pro" not in ids
     assert "anthropic/wafer/MiniMax-M2.7" in ids
-    assert "claude-3-freecc-no-thinking/wafer/MiniMax-M2.7" in ids
+    assert "claude-3-freecc-no-thinking/wafer/MiniMax-M2.7" not in ids
 
 
 def test_models_list_works_without_provider_registry():
@@ -160,10 +152,8 @@ def test_models_list_works_without_provider_registry():
 
     assert response.status_code == 200
     ids = [item["id"] for item in response.json()["data"]]
-    assert ids[:4] == [
+    assert ids[:2] == [
         "anthropic/deepseek/deepseek-chat",
-        "claude-3-freecc-no-thinking/deepseek/deepseek-chat",
         "anthropic/open_router/anthropic/claude-opus",
-        "claude-3-freecc-no-thinking/open_router/anthropic/claude-opus",
     ]
     assert "claude-sonnet-4-20250514" in ids

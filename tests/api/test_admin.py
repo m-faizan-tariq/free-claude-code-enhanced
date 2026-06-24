@@ -523,9 +523,7 @@ def test_admin_config_rotation_fields_appear(monkeypatch, tmp_path):
     body = response.json()
     keys = {field["key"] for field in body["fields"]}
     assert "GEMINI_API_KEYS" in keys
-    assert "GEMINI_FALLBACK_CHAIN" in keys
     assert "OPENROUTER_API_KEYS" in keys
-    assert "OPENROUTER_FALLBACK_CHAIN" in keys
 
 
 def test_admin_config_rotation_fields_in_key_rotation_section(monkeypatch, tmp_path):
@@ -538,10 +536,13 @@ def test_admin_config_rotation_fields_in_key_rotation_section(monkeypatch, tmp_p
     assert response.status_code == 200
     body = response.json()
     for field in body["fields"]:
-        if field["key"] in ("GEMINI_API_KEYS", "GEMINI_FALLBACK_CHAIN",
-                            "OPENROUTER_API_KEYS", "OPENROUTER_FALLBACK_CHAIN"):
-            assert field["section"] == "key_rotation"
-            assert field["type"] == "textarea"
+        if field["key"] == "GEMINI_API_KEYS":
+            assert field["section"] == "gemini_keys"
+            assert field["type"] == "key_list"
+            assert field["value"] == "[]"
+        if field["key"] == "OPENROUTER_API_KEYS":
+            assert field["section"] == "openrouter_keys"
+            assert field["type"] == "key_list"
             assert field["value"] == "[]"
 
 
@@ -551,7 +552,6 @@ def test_admin_config_apply_rotation_fields_valid_json(monkeypatch, tmp_path):
     app = create_app(lifespan_enabled=False)
 
     gemini_keys = '[{"label": "proj-1", "api_key": "AIza-key1"}, {"label": "proj-2", "api_key": "AIza-key2"}]'
-    gemini_chain = '[{"label": "s1", "model": "gemini/gemini-2.0-flash", "key_label": "proj-1"}]'
 
     response = _local_client(app).post(
         "/admin/api/config/apply",
@@ -560,7 +560,6 @@ def test_admin_config_apply_rotation_fields_valid_json(monkeypatch, tmp_path):
                 "MODEL": "gemini/gemini-2.0-flash",
                 "GEMINI_API_KEY": "test-key",
                 "GEMINI_API_KEYS": gemini_keys,
-                "GEMINI_FALLBACK_CHAIN": gemini_chain,
             }
         },
     )
@@ -573,8 +572,6 @@ def test_admin_config_apply_rotation_fields_valid_json(monkeypatch, tmp_path):
     text = env_file.read_text("utf-8")
     assert "GEMINI_API_KEYS=" in text
     assert "AIza-key1" in text
-    assert "GEMINI_FALLBACK_CHAIN=" in text
-    assert "key_label" in text
 
 
 def test_admin_config_apply_rejects_invalid_rotation_json(monkeypatch, tmp_path):
@@ -609,9 +606,7 @@ def test_admin_config_validate_accepts_rotation_fields(monkeypatch, tmp_path):
         json={
             "values": {
                 "GEMINI_API_KEYS": '[{"label": "k1", "api_key": "AIza-key1"}]',
-                "GEMINI_FALLBACK_CHAIN": '[{"label": "s1", "model": "gemini/gemini-2.0-flash", "key_label": "k1"}]',
                 "OPENROUTER_API_KEYS": "[]",
-                "OPENROUTER_FALLBACK_CHAIN": "[]",
             }
         },
     )

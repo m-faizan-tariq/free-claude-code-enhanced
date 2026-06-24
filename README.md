@@ -1,20 +1,21 @@
 <div align="center">
 
-# 🤖 Free Claude Code
+# 🤖 Free Claude Code (Enhanced Fork)
 
-Use Claude Code CLI, Codex CLI, their VS Code extensions, JetBrains ACP, or chat bots through your own provider-backed proxy.
+Use Claude Code CLI, Codex CLI, their VS Code extensions, JetBrains ACP, or chat bots through your own provider-backed proxy — now with **multi-key rotation**, **transport resilience**, and **18 provider backends**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-3776ab.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=for-the-badge)](https://github.com/astral-sh/uv)
-[![Tested with Pytest](https://img.shields.io/badge/testing-Pytest-00c0ff.svg?style=for-the-badge)](https://github.com/Alishahryar1/free-claude-code/actions/workflows/tests.yml)
 [![Type checking: Ty](https://img.shields.io/badge/type%20checking-ty-ffcc00.svg?style=for-the-badge)](https://pypi.org/project/ty/)
 [![Code style: Ruff](https://img.shields.io/badge/code%20formatting-ruff-f5a623.svg?style=for-the-badge)](https://github.com/astral-sh/ruff)
 [![Logging: Loguru](https://img.shields.io/badge/logging-loguru-4ecdc4.svg?style=for-the-badge)](https://github.com/Delgan/loguru)
 
 Free Claude Code routes Anthropic Messages API traffic from Claude Code (CLI and VS Code extension) and OpenAI Responses API traffic from Codex (CLI and VS Code extension) to any provider. It keeps each client's protocol stable while letting you choose free, paid, or local models through the same proxy and Admin UI.
 
-[Quick Start](#quick-start) · [Providers](#choose-a-provider) · [Clients](#connect-your-client) · [Integrations](#optional-integrations) · [Development](#development)
+This is an **enhanced fork** based on [Alishahryar1/free-claude-code](https://github.com/Alishahryar1/free-claude-code) with additional resilience and provider features.
+
+[Quick Start](#quick-start) · [What's Enhanced](#whats-enhanced) · [Providers](#choose-a-provider) · [Clients](#connect-your-client) · [Integrations](#optional-integrations) · [Development](#development)
 
 </div>
 
@@ -40,24 +41,53 @@ Free Claude Code routes Anthropic Messages API traffic from Claude Code (CLI and
   <p><em>Codex native <code>/model</code> picker with the generated FCC catalog.</em></p>
 </div>
 
-## Star History
+## What's Enhanced
 
-<div align="center">
-  <a href="https://star-history.com/#Alishahryar1/free-claude-code&Date">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Alishahryar1/free-claude-code&type=Date&theme=dark">
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Alishahryar1/free-claude-code&type=Date">
-      <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Alishahryar1/free-claude-code&type=Date" width="700">
-    </picture>
-  </a>
-</div>
+This fork adds the following on top of the original Free Claude Code:
+
+### 🔑 Multi-Key Rotation & Fallback
+
+Every provider can be configured with **multiple API keys**. When a key fails (HTTP 400, 401, 403, 429, 503, or connection error), the proxy automatically tries the next key in a round-robin pool before giving up. This means:
+
+- **No single point of failure** — if one key is rate-limited, the next key is used.
+- **Rate-limit aggregation** — 7 keys each with 10 req/min = 70 req/min effective throughput.
+- **Graceful degradation** — the proxy exhausts all keys before raising an error.
+- Supported across OpenModel, OpenRouter, Gemini, and all other providers.
+
+### 🌐 OpenModel Provider
+
+Added an **OpenModel** provider that connects to `api.openmodel.ai/v1/messages` with Anthropic-compatible format. This gives you access to free and low-cost models like `deepseek-v4-flash`, plus many more through the same proxy interface.
+
+The OpenModel provider supports:
+- Full Anthropic Messages API compatibility (streaming, tool use, thinking)
+- Multi-key rotation with automatic fallback
+- Rate-limit aware key scheduling
+
+### 🛡️ Transport Resilience
+
+Three layers of error recovery:
+
+1. **Key rotation fallback** — if a request fails on one key, all remaining keys are tried before failing.
+2. **Mid-stream transport retry** — if a `ReadError`, `ConnectError`, or `RemoteProtocolError` occurs mid-stream, the full request is retried from scratch with the next rotation key (up to 3 retries).
+3. **Tool use sequence fix** — orphan `tool_use` blocks (sent by some clients without matching `tool_result` blocks) are automatically stripped before sending to the provider, preventing HTTP 400 errors from strict Anthropic-format validators.
+
+### 🔧 Connection Pool Efficiency
+
+Key rotation no longer creates a new HTTP client (and thus new TCP/TLS connections) on every key swap. The connection pool is reused, which:
+- Eliminates mid-stream `ReadError` caused by connection churn.
+- Reduces latency on key rotation from ~500ms to ~0ms.
+- Avoids triggering connection limits on provider infrastructure.
+
+### 📊 Diagnostic Logging
+
+When a provider returns HTTP 400, the full error body is logged to the rotation log — so you can see exactly what the provider rejected, without needing to capture raw traffic.
 
 ## What You Get
 
 - Drop-in proxy for Claude Code's Anthropic API calls (`/v1/messages`, `/v1/models`).
 - Drop-in proxy for Codex via the OpenAI Responses API (`/v1/responses`).
 - `fcc-claude` and `fcc-codex` launchers that read the current Admin UI port and auth token each time they start.
-- 17 provider backends: NVIDIA NIM, OpenRouter, Google AI Studio (Gemini), DeepSeek, Mistral La Plateforme, Mistral Codestral, OpenCode Zen, OpenCode Go, Wafer, Kimi, Cerebras Inference, Groq, Fireworks AI, Z.ai, LM Studio, llama.cpp, and Ollama.
+- 18 provider backends: **OpenModel**, NVIDIA NIM, OpenRouter, Google AI Studio (Gemini), DeepSeek, Mistral La Plateforme, Mistral Codestral, OpenCode Zen, OpenCode Go, Wafer, Kimi, Cerebras Inference, Groq, Fireworks AI, Z.ai, LM Studio, llama.cpp, and Ollama.
 - Per-model routing for Claude Code: send Opus, Sonnet, Haiku, and fallback traffic to different providers.
 - Native Claude Code `/model` picker support through the proxy's `/v1/models` endpoint (see [Model Picker](#model-picker)).
 - Native Codex `/model` picker support when launched through `fcc-codex`, using a generated local model catalog.
@@ -75,32 +105,32 @@ Free Claude Code routes Anthropic Messages API traffic from Claude Code (CLI and
 macOS/Linux:
 
 ```bash
-curl -fsSL "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh?raw=1" | sh
+curl -fsSL "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh?raw=1" | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1?raw=1" | iex
+irm "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1?raw=1" | iex
 ```
 
-Review the installers at [scripts/install.sh](https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh) and [scripts/install.ps1](https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1). They install Claude Code and Codex when missing, then install or update the proxy. Re-run these commands to update to the latest version.
+Review the installers at [scripts/install.sh](https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh) and [scripts/install.ps1](https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1). They install Claude Code and Codex when missing, then install or update the proxy. Re-run these commands to update to the latest version.
 
 To remove only Free Claude Code (not uv, Claude Code, Codex, or the uv-managed Python runtime):
 
 macOS/Linux:
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/Alishahryar1/free-claude-code/main/scripts/uninstall.sh" | sh
+curl -fsSL "https://raw.githubusercontent.com/m-faizan-tariq/free-claude-code-enhanced/main/scripts/uninstall.sh" | sh
 ```
 
 Windows PowerShell:
 
 ```powershell
-irm "https://raw.githubusercontent.com/Alishahryar1/free-claude-code/main/scripts/uninstall.ps1" | iex
+irm "https://raw.githubusercontent.com/m-faizan-tariq/free-claude-code-enhanced/main/scripts/uninstall.ps1" | iex
 ```
 
-Review [scripts/uninstall.sh](https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/uninstall.sh) and [scripts/uninstall.ps1](https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/uninstall.ps1). They remove the FCC uv tool and always delete `~/.fcc/`. Stop any running `fcc-server`, `fcc-claude`, `fcc-codex`, `fcc-init`, or `free-claude-code` process before uninstalling.
+Review [scripts/uninstall.sh](https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/uninstall.sh) and [scripts/uninstall.ps1](https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/uninstall.ps1). They remove the FCC uv tool and always delete `~/.fcc/`. Stop any running `fcc-server`, `fcc-claude`, `fcc-codex`, `fcc-init`, or `free-claude-code` process before uninstalling.
 
 ### 2. Start The Proxy
 
@@ -116,19 +146,17 @@ INFO:     Admin UI: http://127.0.0.1:8082/admin (local-only)
 
 Many terminals make these clickable. Use your configured `PORT` if it is not `8082`.
 
-### 3. Open The Admin UI And Configure NVIDIA NIM
+### 3. Open The Admin UI And Configure A Provider
 
 Open the **Admin UI** URL from the terminal output.
 
-Need an NVIDIA NIM API key? Use the **[NVIDIA NIM provider](#nvidia-nim-provider)** section below, then scroll back up here.
+Need an API key? Pick a provider from the [Providers](#choose-a-provider) section below, then scroll back up here.
 
 <div align="center">
   <img src="assets/admin-page.png" alt="Local admin UI for proxy settings" width="700">
 </div>
 
-Paste your NVIDIA NIM API key into `NVIDIA_NIM_API_KEY`, then click **Validate** and **Apply**.
-
-The default model is already set to `nvidia_nim/nvidia/nemotron-3-super-120b-a12b`. You can change it later from the same Admin UI.
+Paste your API key into the corresponding field, then click **Validate** and **Apply**.
 
 ### 4. Run Your Coding Agent
 
@@ -154,7 +182,20 @@ fcc-codex
 
 Pick one provider, enter its key or local URL in the Admin UI, and set `MODEL` to a provider-prefixed model slug. `MODEL` is the fallback. `MODEL_OPUS`, `MODEL_SONNET`, and `MODEL_HAIKU` can override routing for Claude Code's model tiers.
 
-<a id="nvidia-nim-provider"></a>
+### 0. OpenModel (New in This Fork)
+
+Get a key at [api.openmodel.ai](https://api.openmodel.ai) (see their documentation for key provisioning).
+
+In the Admin UI, paste it into `OPENMODEL_API_KEY`, then set `MODEL` to an OpenModel slug such as `openmodel/deepseek-v4-flash`.
+
+OpenModel provides an Anthropic-compatible endpoint at `https://api.openmodel.ai/v1/messages`. It offers access to a variety of free and low-cost models.
+
+Popular examples:
+
+- `openmodel/deepseek-v4-flash`
+- `openmodel/deepseek-v4-flash-free`
+
+This provider supports multi-key rotation — configure multiple OpenModel API keys for automatic rate-limit fallback.
 
 ### 1. [NVIDIA NIM](https://build.nvidia.com/)
 
@@ -515,32 +556,32 @@ macOS/Linux:
 
 ```bash
 # NVIDIA NIM transcription (Riva gRPC)
-curl -fsSL "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-nim
+curl -fsSL "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-nim
 
 # Local Whisper (CPU or CUDA)
-curl -fsSL "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-local
+curl -fsSL "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-local
 
 # Both backends
-curl -fsSL "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-all
+curl -fsSL "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-all
 
 # Local Whisper with CUDA
-curl -fsSL "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-local --torch-backend cu130
+curl -fsSL "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.sh?raw=1" | sh -s -- --voice-local --torch-backend cu130
 ```
 
 Windows PowerShell:
 
 ```powershell
 # NVIDIA NIM transcription (Riva gRPC)
-& ([scriptblock]::Create((irm "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1?raw=1"))) -VoiceNim
+& ([scriptblock]::Create((irm "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1?raw=1"))) -VoiceNim
 
 # Local Whisper (CPU or CUDA)
-& ([scriptblock]::Create((irm "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1?raw=1"))) -VoiceLocal
+& ([scriptblock]::Create((irm "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1?raw=1"))) -VoiceLocal
 
 # Both backends
-& ([scriptblock]::Create((irm "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1?raw=1"))) -VoiceAll
+& ([scriptblock]::Create((irm "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1?raw=1"))) -VoiceAll
 
 # Local Whisper with CUDA
-& ([scriptblock]::Create((irm "https://github.com/Alishahryar1/free-claude-code/blob/main/scripts/install.ps1?raw=1"))) -VoiceLocal -TorchBackend cu130
+& ([scriptblock]::Create((irm "https://github.com/m-faizan-tariq/free-claude-code-enhanced/blob/main/scripts/install.ps1?raw=1"))) -VoiceLocal -TorchBackend cu130
 ```
 
 Restart `fcc-server` after reinstalling.
@@ -562,7 +603,7 @@ Important pieces:
 - Responses requests convert to Anthropic Messages internally, then share the same model router, normalizer, and provider adapters.
 - `fcc-codex` registers a custom `fcc` provider that points Codex at the local proxy's `/v1/responses` endpoint.
 - Model routing resolves Claude model names to `MODEL_OPUS`, `MODEL_SONNET`, `MODEL_HAIKU`, or `MODEL`.
-- NIM, OpenCode Zen, and OpenCode Go use OpenAI chat streaming translated into Anthropic SSE.
+- NIM, OpenCode Zen, OpenCode Go, and OpenModel use OpenAI chat streaming translated into Anthropic SSE.
 - Wafer, OpenRouter, DeepSeek, Kimi, Fireworks AI, Z.ai, LM Studio, llama.cpp, and Ollama use Anthropic Messages style transports where applicable (with provider-specific quirks and model-list URLs).
 - The proxy normalizes thinking blocks, tool calls, token usage metadata, and provider errors into the shape each client expects.
 - Request optimizations answer trivial Claude Code probes locally to save latency and quota.
@@ -572,7 +613,7 @@ Important pieces:
 ### 1. Project Structure
 
 ```text
-free-claude-code/
+free-claude-code-enhanced/
 ├── server.py              # ASGI entry point
 ├── api/                   # FastAPI routes, service layer, routing, optimizations
 ├── core/                  # Shared Anthropic protocol helpers, SSE, OpenAI Responses
@@ -589,8 +630,8 @@ free-claude-code/
 Use this path if you are developing or want to run directly from a checkout:
 
 ```bash
-git clone https://github.com/Alishahryar1/free-claude-code.git
-cd free-claude-code
+git clone https://github.com/m-faizan-tariq/free-claude-code-enhanced.git
+cd free-claude-code-enhanced
 uv run uvicorn server:app --host 0.0.0.0 --port 8082
 ```
 
@@ -642,13 +683,35 @@ CI also enforces a ban on `# type: ignore` / `# ty: ignore` suppressions; `scrip
 - Register provider metadata in `config.provider_catalog` and factory wiring in `providers.registry`.
 - Add messaging platforms by wiring runtime, outbound, and inbound-normalizer ports in `messaging/platforms/`.
 
+## Multi-Key Rotation (How It Works)
+
+This fork adds a **rotation engine** that lets each provider fall back through multiple API keys:
+
+1. Configure multiple keys in the Admin UI under each provider's `_API_KEYS` field (JSON array of `{"label": "...", "api_key": "..."}` objects).
+2. On each request, the proxy picks the next key round-robin from the pool.
+3. If the selected key fails (HTTP 400, 401, 403, 429, 503, connection error, or timeout), the next key is tried automatically.
+4. If all keys are exhausted, the last error is raised.
+5. A rotation log at `/tmp/fcc-rotation.log` shows every attempt with status codes and error types.
+
+This is supported for **OpenModel**, **OpenRouter**, and **Gemini** providers. Other providers can be extended by registering them with a `RotationConfig`.
+
+## Credits
+
+This is an **enhanced fork** of [Alishahryar1/free-claude-code](https://github.com/Alishahryar1/free-claude-code). The original project is the work of Ali Shahryar and contributors. This fork adds:
+
+- Multi-key rotation engine and fallback logic
+- OpenModel provider integration
+- Transport resilience (mid-stream retry, ReadError recovery)
+- Tool use sequence fix (orphan tool_use block stripping)
+- Connection pool reuse on key rotation
+- Diagnostic logging for HTTP 400 errors
+
 ## Contributing
 
 - [`.env.example`](.env.example) lists env key names as a read-only reference for contributors; use the **Admin UI** to change managed proxy settings.
-- Report bugs and feature requests in [Issues](https://github.com/Alishahryar1/free-claude-code/issues). For bug always include all model mapping, current model when issue occured and the issue string
+- Report bugs and feature requests in [Issues](https://github.com/m-faizan-tariq/free-claude-code-enhanced/issues).
 - Keep changes small and covered by focused tests.
 - Do not open Docker integration PRs.
-- Do not open README change PRs just open an issue for it.
 - Run the full check sequence before opening a pull request.
 - The syntax `except X, Y` is brought back in python 3.14 final version (not in 3.14 alpha). Keep in mind before opening PRs.
 

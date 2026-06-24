@@ -22,6 +22,7 @@ from providers.nvidia_nim import NvidiaNimProvider
 from providers.ollama import OllamaProvider
 from providers.open_router import OpenRouterProvider
 from providers.opencode import OpenCodeProvider
+from providers.openmodel import OpenModelProvider
 from providers.registry import (
     PROVIDER_DESCRIPTORS,
     ProviderRegistry,
@@ -76,9 +77,10 @@ def _make_settings(**overrides):
     mock.enable_model_thinking = True
     mock.nim = NimSettings()
     mock.gemini_api_keys = "[]"
-    mock.gemini_fallback_chain = "[]"
     mock.openrouter_api_keys = "[]"
-    mock.openrouter_fallback_chain = "[]"
+    mock.openmodel_api_keys = "[]"
+    mock.openmodel_api_key = "test_openmodel_key"
+    mock.openmodel_proxy = ""
     for key, value in overrides.items():
         setattr(mock, key, value)
     return mock
@@ -189,6 +191,7 @@ def test_create_provider_instantiates_each_builtin():
         "opencode": OpenCodeProvider,
         "opencode_go": OpenCodeProvider,
         "zai": ZaiProvider,
+        "openmodel": OpenModelProvider,
         "gemini": GeminiProvider,
         "groq": GroqProvider,
         "cerebras": CerebrasProvider,
