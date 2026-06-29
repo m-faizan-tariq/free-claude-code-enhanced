@@ -134,6 +134,23 @@ class Settings(BaseSettings):
         description="JSON list of {label, api_key} for multi-key OpenModel rotation",
     )
 
+    # ==================== Cloudflare Workers AI ====================
+    cloudflare_account_id: str = Field(
+        default="",
+        validation_alias="CLOUDFLARE_ACCOUNT_ID",
+        description="Cloudflare account ID for Workers AI",
+    )
+    cloudflare_api_key: str = Field(
+        default="",
+        validation_alias="CLOUDFLARE_API_KEY",
+    )
+    cloudflare_api_keys: str = Field(
+        default="[]",
+        validation_alias="CLOUDFLARE_API_KEYS",
+        description="JSON list of {label, api_key} for multi-key Cloudflare Workers AI rotation",
+    )
+    cloudflare_proxy: str = Field(default="", validation_alias="CLOUDFLARE_PROXY")
+
     # ==================== Groq (OpenAI-compatible) ====================
     groq_api_key: str = Field(default="", validation_alias="GROQ_API_KEY")
 
@@ -212,6 +229,28 @@ class Settings(BaseSettings):
         validation_alias="MODELSCOPE_BASE_URL",
     )
     modelscope_proxy: str = Field(default="", validation_alias="MODELSCOPE_PROXY")
+
+    # ==================== Nous Portal (Hermes proxy) Config ====================
+    nous_portal_api_key: str = Field(
+        default="any-bearer-token", validation_alias="NOUS_PORTAL_API_KEY"
+    )
+    nous_portal_base_url: str = Field(
+        default="http://127.0.0.1:8645/v1",
+        validation_alias="NOUS_PORTAL_BASE_URL",
+    )
+    nous_portal_proxy: str = Field(default="", validation_alias="NOUS_PORTAL_PROXY")
+
+    # ==================== Kiro (via kiro-gateway) Config ====================
+    kiro_proxy_api_key: str = Field(default="", validation_alias="KIRO_PROXY_API_KEY")
+    kiro_base_url: str = Field(
+        default="http://localhost:8001",
+        validation_alias="KIRO_BASE_URL",
+    )
+    kiro_enabled: bool = Field(default=False, validation_alias="KIRO_ENABLED")
+    kiro_default_model: str = Field(
+        default="kiro-sonnet", validation_alias="KIRO_DEFAULT_MODEL"
+    )
+    kiro_proxy: str = Field(default="", validation_alias="KIRO_PROXY")
 
     # ==================== Provider Rate Limiting ====================
     provider_rate_limit: int = Field(default=40, validation_alias="PROVIDER_RATE_LIMIT")
@@ -559,6 +598,7 @@ class Settings(BaseSettings):
         "gemini_api_keys",
         "openrouter_api_keys",
         "openmodel_api_keys",
+        "cloudflare_api_keys",
         mode="before",
     )
     @classmethod

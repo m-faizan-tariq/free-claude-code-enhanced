@@ -21,6 +21,7 @@ from config.rotation_settings import (
 class RotationStep:
     label: str
     api_key: str
+    account_id: str = ""
     model: str | None = None
 
 
@@ -36,7 +37,12 @@ class RotationConfig:
         entries = parse_api_keys_json(api_keys_json)
         keys_already = {e["api_key"] for e in entries}
         self._pool: list[RotationStep] = [
-            RotationStep(label=e["label"], api_key=e["api_key"]) for e in entries
+            RotationStep(
+                label=e["label"],
+                api_key=e["api_key"],
+                account_id=e.get("account_id", ""),
+            )
+            for e in entries
         ]
         if single_key and self._pool and single_key not in keys_already:
             self._pool.insert(

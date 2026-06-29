@@ -169,10 +169,38 @@ def _create_modelscope(config: ProviderConfig, _settings: Settings) -> BaseProvi
     return ModelScopeProvider(config)
 
 
+def _create_kiro(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+    from providers.kiro import KiroProvider
+
+    return KiroProvider(config)
+
+
+def _create_nous_portal(config: ProviderConfig, _settings: Settings) -> BaseProvider:
+    from providers.nous_portal import NousPortalProvider
+
+    return NousPortalProvider(config)
+
+
+def _create_cloudflare(config: ProviderConfig, settings: Settings) -> BaseProvider:
+    from providers.cloudflare import CloudflareProvider
+    from providers.rotation import RotationConfig
+
+    rotation = RotationConfig(
+        settings.cloudflare_api_keys,
+        single_key=config.api_key,
+    )
+    return CloudflareProvider(
+        config,
+        rotation_config=rotation,
+        account_id=settings.cloudflare_account_id,
+    )
+
+
 PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "nvidia_nim": _create_nvidia_nim,
     "open_router": _create_open_router,
     "gemini": _create_gemini,
+    "cloudflare": _create_cloudflare,
     "deepseek": _create_deepseek,
     "mistral": _create_mistral,
     "mistral_codestral": _create_mistral_codestral,
@@ -187,6 +215,8 @@ PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     "openmodel": _create_openmodel,
     "freellmapi": _create_freellmapi,
     "modelscope": _create_modelscope,
+    "kiro": _create_kiro,
+    "nous_portal": _create_nous_portal,
     "lmstudio": _create_lmstudio,
     "llamacpp": _create_llamacpp,
     "ollama": _create_ollama,
@@ -312,6 +342,8 @@ def _model_list_provider_ids_for_settings(settings: Settings) -> tuple[str, ...]
     referenced_provider_ids = _referenced_provider_ids(settings)
     provider_ids: list[str] = []
     for provider_id, descriptor in PROVIDER_DESCRIPTORS.items():
+        if provider_id == "kiro" and not getattr(settings, "kiro_enabled", False):
+            continue
         if descriptor.static_credential is not None:
             if provider_id in referenced_provider_ids:
                 provider_ids.append(provider_id)

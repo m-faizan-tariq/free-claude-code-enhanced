@@ -22,6 +22,8 @@ _EXPECTED_PROVIDER_ORDER: tuple[str, ...] = (
     "openmodel",
     "freellmapi",
     "modelscope",
+    "kiro",
+    "nous_portal",
     "lmstudio",
     "llamacpp",
     "ollama",

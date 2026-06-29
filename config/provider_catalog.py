@@ -40,6 +40,9 @@ GROQ_DEFAULT_BASE = "https://api.groq.com/openai/v1"
 CEREBRAS_DEFAULT_BASE = "https://api.cerebras.ai/v1"
 FREELMAPI_DEFAULT_BASE = "http://localhost:3001/v1"
 MODELSCOPE_DEFAULT_BASE = "https://api-inference.modelscope.ai/v1"
+KIRO_DEFAULT_BASE = "http://localhost:8001"
+NOUS_PORTAL_DEFAULT_BASE = "http://127.0.0.1:8645/v1"
+CLOUDFLARE_DEFAULT_BASE = "https://api.cloudflare.com/client/v4/accounts/{id}/ai/v1"  # {id} is replaced at factory time
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +256,37 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
         default_base_url=MODELSCOPE_DEFAULT_BASE,
         base_url_attr="modelscope_base_url",
         proxy_attr="modelscope_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
+    ),
+    "cloudflare": ProviderDescriptor(
+        provider_id="cloudflare",
+        transport_type="openai_chat",
+        credential_env="CLOUDFLARE_API_KEY",
+        credential_url="https://dash.cloudflare.com/profile/api-tokens",
+        credential_attr="cloudflare_api_key",
+        default_base_url=CLOUDFLARE_DEFAULT_BASE,
+        proxy_attr="cloudflare_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
+    ),
+    "kiro": ProviderDescriptor(
+        provider_id="kiro",
+        transport_type="openai_chat",
+        credential_env="KIRO_PROXY_API_KEY",
+        credential_url="https://github.com/jwadow/kiro-gateway",
+        credential_attr="kiro_proxy_api_key",
+        default_base_url=KIRO_DEFAULT_BASE,
+        base_url_attr="kiro_base_url",
+        proxy_attr="kiro_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
+    ),
+    "nous_portal": ProviderDescriptor(
+        provider_id="nous_portal",
+        transport_type="openai_chat",
+        credential_env="NOUS_PORTAL_API_KEY",
+        credential_attr="nous_portal_api_key",
+        default_base_url=NOUS_PORTAL_DEFAULT_BASE,
+        base_url_attr="nous_portal_base_url",
+        proxy_attr="nous_portal_proxy",
         capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
     ),
     "lmstudio": ProviderDescriptor(

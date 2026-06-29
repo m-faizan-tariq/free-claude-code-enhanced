@@ -89,6 +89,11 @@ SECTIONS: tuple[ConfigSectionSpec, ...] = (
         "Round-robin across multiple OpenModel keys. Each request uses the next key in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
     ),
     ConfigSectionSpec(
+        "cloudflare_keys",
+        "Cloudflare Workers AI Keys",
+        "Round-robin across multiple Cloudflare API tokens. Each request uses the next token in sequence. Watch rotation live: tail -f /tmp/fcc-rotation.log",
+    ),
+    ConfigSectionSpec(
         "models",
         "Model Routing",
         "Provider-prefixed models used for Claude model tiers.",
@@ -328,6 +333,96 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         default="https://api-inference.modelscope.ai/v1",
     ),
     ConfigFieldSpec(
+        "CLOUDFLARE_ACCOUNT_ID",
+        "Cloudflare Account ID",
+        "providers",
+        settings_attr="cloudflare_account_id",
+        description="Cloudflare account ID for Workers AI (found in Cloudflare dashboard).",
+    ),
+    ConfigFieldSpec(
+        "CLOUDFLARE_API_KEY",
+        "Cloudflare API Token",
+        "providers",
+        "secret",
+        settings_attr="cloudflare_api_key",
+        secret=True,
+        description="Cloudflare Workers AI API token (create at dash.cloudflare.com/profile/api-tokens).",
+    ),
+    ConfigFieldSpec(
+        "KIRO_ENABLED",
+        "Kiro (kiro-gateway)",
+        "providers",
+        "boolean",
+        settings_attr="kiro_enabled",
+        default="false",
+        description=(
+            "Enable kiro-gateway provider. Requires kiro-gateway running locally. "
+            "See https://github.com/jwadow/kiro-gateway for setup."
+        ),
+    ),
+    ConfigFieldSpec(
+        "KIRO_PROXY_API_KEY",
+        "Kiro Proxy API Key",
+        "providers",
+        "secret",
+        settings_attr="kiro_proxy_api_key",
+        secret=True,
+        description="PROXY_API_KEY configured in kiro-gateway's .env.",
+    ),
+    ConfigFieldSpec(
+        "KIRO_BASE_URL",
+        "Kiro Base URL",
+        "providers",
+        settings_attr="kiro_base_url",
+        default="http://localhost:8001",
+    ),
+    ConfigFieldSpec(
+        "KIRO_DEFAULT_MODEL",
+        "Kiro Default Model",
+        "providers",
+        settings_attr="kiro_default_model",
+        default="kiro-sonnet",
+        description="Default model slug passed to kiro-gateway.",
+    ),
+    ConfigFieldSpec(
+        "KIRO_PROXY",
+        "Kiro Proxy",
+        "providers",
+        "secret",
+        settings_attr="kiro_proxy",
+        secret=True,
+        advanced=True,
+    ),
+    ConfigFieldSpec(
+        "NOUS_PORTAL_BASE_URL",
+        "Nous Portal Base URL",
+        "providers",
+        settings_attr="nous_portal_base_url",
+        default="http://127.0.0.1:8645/v1",
+        description=(
+            "Run `hermes proxy` locally to start the Nous Portal proxy."
+            " Step 3.7 Flash (free) is available at stepfun/step-3.7-flash:free."
+        ),
+    ),
+    ConfigFieldSpec(
+        "NOUS_PORTAL_API_KEY",
+        "Nous Portal API Key",
+        "providers",
+        "secret",
+        settings_attr="nous_portal_api_key",
+        secret=True,
+        description="API key for Nous Portal Hermes proxy (default: any-bearer-token).",
+    ),
+    ConfigFieldSpec(
+        "NOUS_PORTAL_PROXY",
+        "Nous Portal Proxy",
+        "providers",
+        "secret",
+        settings_attr="nous_portal_proxy",
+        secret=True,
+        advanced=True,
+    ),
+    ConfigFieldSpec(
         "NVIDIA_NIM_PROXY",
         "NVIDIA NIM Proxy",
         "providers",
@@ -497,6 +592,15 @@ FIELDS: tuple[ConfigFieldSpec, ...] = (
         settings_attr="openmodel_api_keys",
         default="[]",
         description="Add API keys from multiple OpenModel accounts for round-robin rotation.",
+    ),
+    ConfigFieldSpec(
+        "CLOUDFLARE_API_KEYS",
+        "Keys",
+        "cloudflare_keys",
+        "key_list",
+        settings_attr="cloudflare_api_keys",
+        default="[]",
+        description="Add API tokens from multiple Cloudflare accounts for round-robin rotation.",
     ),
     ConfigFieldSpec(
         "GROQ_PROXY",
@@ -1382,6 +1486,21 @@ def provider_config_status(
     state = state or _load_value_state()
     statuses: list[dict[str, Any]] = []
     for provider_id, descriptor in PROVIDER_CATALOG.items():
+        if provider_id == "kiro":
+            enabled_value = str(state.get("KIRO_ENABLED", {}).get("value", "false"))
+            key_value = str(state.get("KIRO_PROXY_API_KEY", {}).get("value", ""))
+            enabled = enabled_value.lower() == "true"
+            configured = enabled and bool(key_value.strip())
+            statuses.append(
+                {
+                    "provider_id": provider_id,
+                    "kind": "remote",
+                    "status": "configured" if configured else "disabled",
+                    "label": "Configured" if configured else "Disabled",
+                    "credential_env": "KIRO_PROXY_API_KEY",
+                }
+            )
+            continue
         if descriptor.credential_env is None:
             base_url = ""
             if descriptor.base_url_attr is not None:

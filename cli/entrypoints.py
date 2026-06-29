@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import threading
 import time
 import webbrowser
 from pathlib import Path
+
+from config.paths import config_dir_path
+from config.settings import get_settings
 
 import uvicorn
 
@@ -44,6 +48,7 @@ def _load_env_template() -> str:
 
 def serve() -> None:
     """Start the FastAPI server (registered as `fcc-server` script)."""
+    _sync_opencode_models()
     opened_admin_browser = False
     try:
         try:
@@ -60,6 +65,23 @@ def serve() -> None:
             return
     finally:
         kill_all_best_effort()
+
+
+def _sync_opencode_models() -> None:
+    """Sync OpenCode model list from FCC's model cache on server start."""
+    script = shutil.which("fcc-sync-models.py") or str(
+        Path.home() / ".local" / "bin" / "fcc-sync-models.py"
+    )
+    if not Path(script).is_file():
+        return
+    try:
+        subprocess.run(
+            [sys.executable, script],
+            capture_output=True,
+            timeout=30,
+        )
+    except Exception:
+        pass
 
 
 def _admin_browser_open_enabled() -> bool:

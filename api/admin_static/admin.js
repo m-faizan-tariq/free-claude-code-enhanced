@@ -21,7 +21,7 @@ const VIEW_GROUPS = [
     id: "key_rotation",
     label: "Key Rotation",
     title: "Key Rotation",
-    sections: ["gemini_keys", "openrouter_keys", "openmodel_keys"],
+    sections: ["gemini_keys", "openrouter_keys", "openmodel_keys", "cloudflare_keys"],
     containerId: "keyRotationSections",
   },
   {
@@ -230,6 +230,8 @@ function renderSections(sections, fields) {
     bySection.get(field.section).push(field);
   });
 
+  const collapsibleViews = new Set(["key_rotation"]);
+
   VIEW_GROUPS.forEach((view) => {
     const container = byId(view.containerId);
     view.sections.forEach((sectionId) => {
@@ -243,15 +245,18 @@ function renderSections(sections, fields) {
 
       const heading = document.createElement("div");
       heading.className = "section-heading";
-      heading.innerHTML = `<div><h3>${section.label}</h3><p>${section.description}</p></div>`;
+      heading.innerHTML = `<span class="collapse-icon">▼</span><div><h3>${section.label}</h3><p>${section.description}</p></div>`;
       sectionEl.appendChild(heading);
+
+      const content = document.createElement("div");
+      content.className = "section-content";
 
       const grid = document.createElement("div");
       grid.className = "field-grid";
       sectionFields.forEach((field) => {
         grid.appendChild(renderField(field));
       });
-      sectionEl.appendChild(grid);
+      content.appendChild(grid);
 
       if (sectionFields.some((field) => field.advanced)) {
         const toggle = document.createElement("button");
@@ -262,8 +267,22 @@ function renderSections(sections, fields) {
           const showing = sectionEl.classList.toggle("show-advanced");
           toggle.textContent = showing ? "Hide advanced" : "Show advanced";
         });
-        sectionEl.appendChild(toggle);
+        content.appendChild(toggle);
       }
+
+      sectionEl.appendChild(content);
+
+      const startCollapsed = collapsibleViews.has(view.id);
+      if (startCollapsed) {
+        content.classList.add("collapsed");
+        heading.querySelector(".collapse-icon")?.classList.add("collapsed");
+      }
+
+      heading.addEventListener("click", (e) => {
+        if (e.target.closest("button, input, textarea, select, a")) return;
+        content.classList.toggle("collapsed");
+        heading.querySelector(".collapse-icon")?.classList.toggle("collapsed");
+      });
 
       container.appendChild(sectionEl);
     });
@@ -517,6 +536,7 @@ function renderKeyListInput(field) {
 
   const primaryKeyName = field.key === "GEMINI_API_KEYS" ? "GEMINI_API_KEY"
     : field.key === "OPENMODEL_API_KEYS" ? "OPENMODEL_API_KEY"
+    : field.key === "CLOUDFLARE_API_KEYS" ? "CLOUDFLARE_API_KEY"
     : "OPENROUTER_API_KEY";
   const primaryField = state.fields.get(primaryKeyName);
   const primaryValue = (primaryField && primaryField.configured && primaryField.value) || "";
@@ -535,11 +555,14 @@ function renderKeyListInput(field) {
   list.className = "key-list-entries";
   wrapper.appendChild(list);
 
+  const isCloudflare = field.key === "CLOUDFLARE_API_KEYS";
+
   const addForm = document.createElement("div");
   addForm.className = "key-list-add";
   addForm.innerHTML =
     '<input type="text" class="key-label-input" placeholder="Label (e.g. Project A)" />' +
     '<input type="password" class="key-value-input" placeholder="API key" />' +
+    (isCloudflare ? '<input type="text" class="key-accountid-input" placeholder="Account ID" />' : "") +
     '<button type="button" class="key-add-btn">Add</button>';
   wrapper.appendChild(addForm);
 
@@ -603,6 +626,19 @@ function renderKeyListInput(field) {
       code.className = "key-masked";
       code.textContent = masked;
       row.appendChild(code);
+      if (isCloudflare) {
+        const acctInput = document.createElement("input");
+        acctInput.type = "text";
+        acctInput.className = "key-accountid-input-inline";
+        acctInput.value = entry.account_id || "";
+        acctInput.placeholder = "Account ID";
+        acctInput.addEventListener("change", () => {
+          keys[index].account_id = acctInput.value.trim() || "";
+          hidden.value = JSON.stringify(keys, null, 2);
+          updateDirtyState();
+        });
+        row.appendChild(acctInput);
+      }
       const rmBtn = document.createElement("button");
       rmBtn.type = "button";
       rmBtn.className = "key-remove-btn";
@@ -633,10 +669,19 @@ function renderKeyListInput(field) {
     } catch {
       keys = [];
     }
-    keys.push({ label, api_key: apiKey });
+    const entry = { label, api_key: apiKey };
+    if (isCloudflare) {
+      const acctInput = addForm.querySelector(".key-accountid-input");
+      const accountId = acctInput.value.trim();
+      if (accountId) entry.account_id = accountId;
+    }
+    keys.push(entry);
     hidden.value = JSON.stringify(keys, null, 2);
     labelInput.value = "";
     valueInput.value = "";
+    if (isCloudflare) {
+      addForm.querySelector(".key-accountid-input").value = "";
+    }
     renderKeys();
     updateDirtyState();
   });
